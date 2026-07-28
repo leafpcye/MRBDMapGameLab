@@ -1,19 +1,25 @@
-const CACHE_NAME = "mrbd-map-game-lab-v0.1.0";
+const CACHE_PREFIX = "mrbd-map-game-lab-";
+const workerUrl = new URL(self.location.href);
+const buildToken = (workerUrl.searchParams.get("v") || "local-dev").replace(/[^a-zA-Z0-9._-]/g, "-");
+const CACHE_NAME = `${CACHE_PREFIX}${buildToken}`;
+const APP_BASE = new URL("./", workerUrl);
+const appUrl = (relativePath) => new URL(relativePath, APP_BASE).href;
+const INDEX_URL = appUrl("index.html");
 const APP_SHELL = [
-  "/",
-  "/index.html",
-  "/styles.css",
-  "/app.js",
-  "/build-info.js",
-  "/manifest.webmanifest",
-  "/modules/logger.js",
-  "/modules/environment.js",
-  "/modules/input.js",
-  "/modules/storage.js",
-  "/modules/lifecycle.js",
-  "/modules/network.js",
-  "/modules/export.js",
-  "/modules/ui.js"
+  appUrl("./"),
+  INDEX_URL,
+  appUrl("styles.css"),
+  appUrl("app.js"),
+  appUrl("build-info.js"),
+  appUrl("manifest.webmanifest"),
+  appUrl("modules/logger.js"),
+  appUrl("modules/environment.js"),
+  appUrl("modules/input.js"),
+  appUrl("modules/storage.js"),
+  appUrl("modules/lifecycle.js"),
+  appUrl("modules/network.js"),
+  appUrl("modules/export.js"),
+  appUrl("modules/ui.js")
 ];
 
 self.addEventListener("install", (event) => {
@@ -23,7 +29,7 @@ self.addEventListener("install", (event) => {
 self.addEventListener("activate", (event) => {
   event.waitUntil(
     caches.keys()
-      .then((names) => Promise.all(names.filter((name) => name.startsWith("mrbd-map-game-lab-") && name !== CACHE_NAME).map((name) => caches.delete(name))))
+      .then((names) => Promise.all(names.filter((name) => name.startsWith(CACHE_PREFIX) && name !== CACHE_NAME).map((name) => caches.delete(name))))
       .then(() => self.clients.claim())
   );
 });
@@ -42,7 +48,7 @@ self.addEventListener("fetch", (event) => {
       .catch(async () => {
         const cached = await caches.match(event.request);
         if (cached) return cached;
-        if (event.request.mode === "navigate") return caches.match("/index.html");
+        if (event.request.mode === "navigate") return caches.match(INDEX_URL);
         return new Response("Offline and not cached", { status: 503, headers: { "Content-Type": "text/plain" } });
       })
   );

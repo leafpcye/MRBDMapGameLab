@@ -3,7 +3,7 @@ import { errorDetails } from "./storage.js";
 export async function runNetworkProbe(logger, bypassCache) {
   const startedAt = new Date().toISOString();
   const startedMs = performance.now();
-  const url = new URL("/build-info.js", location.origin);
+  const url = new URL("../build-info.js", import.meta.url);
   if (bypassCache) url.searchParams.set("_probe", Date.now().toString());
   logger.log("network", "fetch-start", { url: url.href, startedAt, bypassCache });
   try {

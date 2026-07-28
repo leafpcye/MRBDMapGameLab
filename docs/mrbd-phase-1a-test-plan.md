@@ -2,9 +2,13 @@
 
 Do not fill expected event names from desktop assumptions. Before each test, record app version, Git commit, short session ID, tester, device/software versions, date/time, and network condition. Export after each test where possible.
 
+**Deployment entry point:** `https://leafpcye.github.io/MRBDMapGameLab/`
+
+Before using it on MRBD, confirm the URL returns the intended build. Until the GitHub Pages workflow is verified, record its status as `Pending GitHub Pages activation`.
+
 ## Test 1 — First open
 
-**Preconditions:** MRBD and paired iPhone are online; Phase 1A URL is available; no result has been assumed.
+**Preconditions:** MRBD and paired iPhone are online; the deployed Phase 1A URL above has been verified in a desktop precheck; no MRBD result has been assumed.
 
 **Steps:**
 

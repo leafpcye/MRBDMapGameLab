@@ -1,0 +1,6 @@
+# Generated locally or by GitHub Actions.
+build-info.js
+dist/
+
+# Local platform/editor noise.
+.DS_Store

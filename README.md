@@ -4,7 +4,13 @@ A minimal, repeatable evidence harness for **Phase 1A** of Meta Ray-Ban Display 
 
 This repository does **not** contain Location, Motion/Orientation, Audio, speech, AI, maps, routes, game content, accounts, a backend, remote logging, or a native companion. Phase 1B and Phase 1C are not implemented.
 
-## Run locally
+Repository: [leafpcye/MRBDMapGameLab](https://github.com/leafpcye/MRBDMapGameLab)
+
+GitHub Pages target: [https://leafpcye.github.io/MRBDMapGameLab/](https://leafpcye.github.io/MRBDMapGameLab/)
+
+The Pages URL must be treated as pending until its workflow has completed successfully. A successful deployment is still only deployment evidence, not an MRBD capability result.
+
+## Local development
 
 Node.js is the only prerequisite. No package installation is required.
 
@@ -17,9 +23,37 @@ The server binds only to `127.0.0.1` and prints `http://localhost:4173`. Stop it
 ```bash
 npm test
 npm run build-info
+npm run build
 ```
 
-`npm run dev` automatically regenerates `build-info.js`. The generator reads the version from `package.json`; it records a short Git commit, `uncommitted` when the repository has no commit, or `unknown` when Git is unavailable.
+`npm run dev` automatically regenerates the ignored local `build-info.js`. `npm run build` creates a clean deployable `dist/`, including `.nojekyll`, without tests, documentation, or development scripts.
+
+To preview the built site at the same project path used by GitHub Pages:
+
+```bash
+npm run preview
+```
+
+This serves both `/` and `/MRBDMapGameLab/` locally from `dist/`.
+
+## Build identity
+
+`build-info.js` and `dist/` are generated files and are not tracked by Git. The generator:
+
+1. reads the version from `package.json`;
+2. prefers the GitHub Actions `GITHUB_SHA`, shortened to seven characters;
+3. otherwise reads the current local Git commit;
+4. falls back to `uncommitted` or `unknown` without failing the build.
+
+GitHub Actions generates `dist/build-info.js` from the commit being deployed. It never writes the result back to `main`, avoiding the commit-hash regeneration loop. To inspect the deployed identity, open `build-info.js` below the deployed application path or read VERSION and COMMIT in the app header.
+
+## GitHub Pages deployment
+
+Pushes to `main` and manual workflow dispatches run `.github/workflows/deploy-pages.yml`. The workflow tests, builds, configures Pages, uploads `dist/`, and deploys using only GitHub-maintained Actions.
+
+The application uses relative HTML and module URLs. Its manifest scope, Service Worker registration, cache URLs, navigation fallback, and Network Probe are all contained under `/MRBDMapGameLab/`.
+
+See [docs/deployment.md](docs/deployment.md) for activation, verification, rollback, and Meta AI App steps.
 
 ## Project structure
 
@@ -28,6 +62,8 @@ npm run build-info
 - `sw.js`, `manifest.webmanifest`: minimal versioned app shell.
 - `scripts/dev-server.mjs`: localhost-only static server with no-store responses and traversal protection.
 - `scripts/generate-build-info.mjs`: reproducible build identity.
+- `scripts/build-site.mjs`: dependency-free `dist/` builder.
+- `.github/workflows/deploy-pages.yml`: official GitHub Pages artifact deployment.
 - `tests/`: Node built-in tests for Logger and injected storage adapters.
 - `docs/`: capability matrix, test catalog, and real-device procedure.
 - `docs/results/`: user-provided evidence outputs; no fabricated results.
@@ -35,6 +71,8 @@ npm run build-info
 ## Service Worker
 
 Registration is explicit on the Storage page. To remove it, use **Unregister SW**. In desktop browser developer tools, Application → Service Workers can be used to verify or remove the registration. Unregistering does not delete every browser cache; the probe deliberately avoids broad cache deletion.
+
+The Service Worker URL includes the deployed version and commit. That value becomes the app-specific cache version; activation deletes only older caches carrying the `mrbd-map-game-lab-` prefix. It never deletes caches belonging to other applications.
 
 Registration, activation, or a successful desktop offline fetch does not prove MRBD offline cold-start behavior.
 

@@ -6,8 +6,10 @@
   "description": "Phase 1A capability probe for the Meta Ray-Ban Display web runtime.",
   "scripts": {
     "build-info": "node scripts/generate-build-info.mjs",
+    "build": "node scripts/build-site.mjs",
     "predev": "npm run build-info",
     "dev": "node scripts/dev-server.mjs",
+    "preview": "npm run build && node scripts/dev-server.mjs --root dist --mount /MRBDMapGameLab/",
     "test": "node --test"
   }
 }

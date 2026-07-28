@@ -261,7 +261,7 @@ async function testCacheStorage() {
   const name = "mrbd-probe-storage-test-v1";
   const cache = await caches.open(name);
   logger.log("storage", "cacheStorage-step", { step: "create", status: "success", cacheName: name });
-  const url = new URL("/__mrbd-cache-probe__", location.origin).href;
+  const url = new URL("./__mrbd-cache-probe__", import.meta.url).href;
   await cache.put(url, new Response("mrbd-cache-probe", { headers: { "Content-Type": "text/plain" } }));
   logger.log("storage", "cacheStorage-step", { step: "write", status: "success", url });
   const match = await cache.match(url);
@@ -283,7 +283,10 @@ function swState(registration) {
 }
 async function registerServiceWorker() {
   if (!("serviceWorker" in navigator)) throw Object.assign(new Error("API missing"), { name: "MissingAPIError" });
-  const registration = await navigator.serviceWorker.register("/sw.js");
+  const serviceWorkerUrl = new URL("./sw.js", import.meta.url);
+  serviceWorkerUrl.searchParams.set("v", `${BUILD_INFO.version}-${BUILD_INFO.gitCommit}`);
+  // Omitting an explicit scope keeps control limited to the directory containing sw.js.
+  const registration = await navigator.serviceWorker.register(serviceWorkerUrl);
   return swState(registration);
 }
 async function updateServiceWorker() {

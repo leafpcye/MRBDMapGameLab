@@ -3,7 +3,18 @@ import { readFile, stat } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
-const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
+const projectRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
+const args = process.argv.slice(2);
+const valueAfter = (flag, fallback) => {
+  const index = args.indexOf(flag);
+  return index === -1 ? fallback : args[index + 1];
+};
+const root = path.resolve(projectRoot, valueAfter("--root", "."));
+if (root !== projectRoot && !root.startsWith(`${projectRoot}${path.sep}`)) {
+  throw new Error(`--root must stay inside ${projectRoot}`);
+}
+const mountValue = valueAfter("--mount", "/");
+const mount = `/${mountValue.replace(/^\/+|\/+$/g, "")}${mountValue === "/" ? "" : "/"}`;
 const host = "127.0.0.1";
 const port = Number(process.env.PORT || 4173);
 const mimeTypes = new Map([
@@ -27,7 +38,9 @@ const server = http.createServer(async (request, response) => {
       response.end("Bad Request");
       return;
     }
-    const relative = pathname === "/" ? "index.html" : pathname.replace(/^\/+/, "");
+    let servedPath = pathname;
+    if (mount !== "/" && pathname.startsWith(mount)) servedPath = pathname.slice(mount.length - 1);
+    const relative = servedPath === "/" ? "index.html" : servedPath.replace(/^\/+/, "");
     const filePath = path.resolve(root, relative);
     if (filePath !== root && !filePath.startsWith(`${root}${path.sep}`)) {
       response.writeHead(403, { "Content-Type": "text/plain; charset=utf-8" });
@@ -53,6 +66,8 @@ const server = http.createServer(async (request, response) => {
 
 server.listen(port, host, () => {
   console.log(`MRBD Phase 1A probe running at http://localhost:${port}`);
+  console.log(`Serving: ${root}`);
+  if (mount !== "/") console.log(`Project path: http://localhost:${port}${mount}`);
   console.log("Press Ctrl+C to stop.");
 });
 
