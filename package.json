@@ -1,0 +1,13 @@
+{
+  "name": "mrbd-map-game-lab",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Phase 1A capability probe for the Meta Ray-Ban Display web runtime.",
+  "scripts": {
+    "build-info": "node scripts/generate-build-info.mjs",
+    "predev": "npm run build-info",
+    "dev": "node scripts/dev-server.mjs",
+    "test": "node --test"
+  }
+}

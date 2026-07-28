@@ -1,0 +1,104 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="theme-color" content="#050807">
+  <meta name="color-scheme" content="dark">
+  <link rel="manifest" href="/manifest.webmanifest">
+  <link rel="stylesheet" href="/styles.css">
+  <title>MRBD Capability Probe</title>
+</head>
+<body>
+  <div id="app" class="shell">
+    <header class="status-bar">
+      <div>
+        <p class="eyebrow">MRBD / PHASE 1A</p>
+        <h1>Capability Probe</h1>
+      </div>
+      <dl class="build-strip" aria-label="Build and session status">
+        <div><dt>VERSION</dt><dd id="app-version">—</dd></div>
+        <div><dt>COMMIT</dt><dd id="git-commit">—</dd></div>
+        <div><dt>SESSION</dt><dd id="session-short">—</dd></div>
+        <div><dt>NETWORK</dt><dd id="network-status">—</dd></div>
+        <div><dt>PAGE</dt><dd id="current-page">Home</dd></div>
+      </dl>
+    </header>
+
+    <main id="main" tabindex="-1">
+      <section class="page active" data-page="home" aria-labelledby="home-title">
+        <div class="section-heading">
+          <p class="kicker">REAL-DEVICE EVIDENCE WORKSPACE</p>
+          <h2 id="home-title">Choose a probe</h2>
+          <p>Desktop checks confirm the harness, not MRBD capability.</p>
+        </div>
+        <nav class="probe-menu focus-grid" aria-label="Probe modules">
+          <button data-open="environment"><span>01</span>Environment<small>Runtime & API presence</small></button>
+          <button data-open="input"><span>02</span>Input<small>Raw events & focus</small></button>
+          <button data-open="storage"><span>03</span>Storage<small>Persistence & service worker</small></button>
+          <button data-open="lifecycle"><span>04</span>Lifecycle<small>Hide, restore & reload</small></button>
+          <button data-open="network"><span>05</span>Network<small>State & same-origin fetch</small></button>
+          <button data-open="export"><span>06</span>Export<small>Download, share & fallback</small></button>
+        </nav>
+      </section>
+
+      <section class="page" data-page="environment" aria-labelledby="environment-title">
+        <div class="section-heading"><p class="kicker">01 / RUNTIME</p><h2 id="environment-title">Environment</h2><p id="environment-status">Not yet probed</p></div>
+        <div class="actions"><button id="run-environment">Run Environment Probe</button><button id="copy-environment">Copy Environment Summary</button><button data-clear="environment">Clear Module Log</button><button data-back>Back</button></div>
+        <div id="environment-output" class="results" aria-live="polite"></div>
+        <div data-recent="environment" class="recent"></div>
+      </section>
+
+      <section class="page" data-page="input" aria-labelledby="input-title">
+        <div class="section-heading"><p class="kicker">02 / RAW EVENTS</p><h2 id="input-title">Input</h2><p id="input-status">Stopped · no events observed</p></div>
+        <div class="actions"><button id="start-input">Start</button><button id="stop-input">Stop</button><button id="prevent-default" aria-pressed="false">Prevent navigation defaults: Off</button><button data-clear="input">Clear Module Log</button><button data-back>Back</button></div>
+        <dl class="live-readout">
+          <div><dt>FOCUS</dt><dd id="input-focus">none</dd></div><div><dt>SELECTED</dt><dd id="input-selection">none</dd></div>
+          <div><dt>EVENTS</dt><dd id="input-count">0</dd></div><div><dt>KEY PAIR</dt><dd id="input-pair">No matching keyup observed</dd></div>
+        </dl>
+        <div id="input-controls" class="input-lab">
+          <fieldset><legend>A · Single Button</legend><button data-test-control="single">Activate test button</button></fieldset>
+          <fieldset class="vertical"><legend>B · Vertical List</legend><button data-test-control="vertical-1">Option 1</button><button data-test-control="vertical-2">Option 2</button><button data-test-control="vertical-3">Option 3</button><button data-test-control="vertical-4">Option 4</button><button data-test-control="vertical-5">Option 5</button></fieldset>
+          <fieldset class="horizontal"><legend>C · Horizontal Selector</legend><button data-test-control="spell-a">Spell A</button><button data-test-control="spell-b">Spell B</button><button data-test-control="spell-c">Spell C</button></fieldset>
+          <fieldset class="long-list"><legend>D · Long List</legend><div id="long-list"></div></fieldset>
+        </div>
+        <div data-recent="input" class="recent"></div>
+      </section>
+
+      <section class="page" data-page="storage" aria-labelledby="storage-title">
+        <div class="section-heading"><p class="kicker">03 / PERSISTENCE</p><h2 id="storage-title">Storage</h2><p id="storage-status">Ready for explicit tests</p></div>
+        <label class="value-field">Test value <input id="storage-value" maxlength="120" value="phase-1a"></label>
+        <div class="actions"><button id="test-local">Test localStorage</button><button id="test-session">Test sessionStorage</button><button id="test-idb">Test IndexedDB</button><button id="test-cache">Test Cache Storage</button><button id="register-sw">Register Service Worker</button><button id="update-sw">Check SW Update</button><button id="unregister-sw">Unregister SW</button><button data-clear="storage">Clear Module Log</button><button data-back>Back</button></div>
+        <div id="storage-output" class="results" aria-live="polite"></div>
+        <div data-recent="storage" class="recent"></div>
+      </section>
+
+      <section class="page" data-page="lifecycle" aria-labelledby="lifecycle-title">
+        <div class="section-heading"><p class="kicker">04 / PAGE STATE</p><h2 id="lifecycle-title">Lifecycle</h2><p id="lifecycle-status">Listeners active from script start</p></div>
+        <dl id="lifecycle-readout" class="live-readout"></dl>
+        <label class="value-field">Marker note <input id="marker-note" maxlength="160" placeholder="Before glasses screen off"></label>
+        <div class="actions"><button id="add-marker">Lifecycle Marker</button><button data-clear="lifecycle">Clear Module Log</button><button data-back>Back</button></div>
+        <div data-recent="lifecycle" class="recent"></div>
+      </section>
+
+      <section class="page" data-page="network" aria-labelledby="network-title">
+        <div class="section-heading"><p class="kicker">05 / CONNECTIVITY</p><h2 id="network-title">Network</h2><p id="network-probe-status">navigator.onLine is not proof of internet access.</p></div>
+        <label class="toggle-line"><input id="bypass-cache" type="checkbox"> Bypass cache</label>
+        <div class="actions"><button id="run-network">Run Same-Origin Fetch</button><button data-clear="network">Clear Module Log</button><button data-back>Back</button></div>
+        <div id="network-output" class="results" aria-live="polite"></div>
+        <div data-recent="network" class="recent"></div>
+      </section>
+
+      <section class="page" data-page="export" aria-labelledby="export-title">
+        <div class="section-heading"><p class="kicker">06 / EVIDENCE</p><h2 id="export-title">Export</h2><p id="export-status">Every export includes an Environment snapshot.</p></div>
+        <div class="actions"><button id="download-json">Download JSON</button><button id="download-csv">Download CSV</button><button id="share-json">Web Share</button><button id="copy-summary">Copy Summary</button><button id="copy-json">Copy Full JSON</button><button id="show-export">Show Export Text</button><button id="clear-all">Clear All Logs</button><button data-back>Back</button></div>
+        <p id="export-warning" class="warning" hidden></p>
+        <div id="export-text-wrap" hidden><label for="export-text">Export text (selectable, first segment if large)</label><textarea id="export-text" rows="12" readonly></textarea><div class="actions"><button id="previous-segment">Previous</button><button id="next-segment">Next</button><span id="segment-status"></span></div></div>
+        <div data-recent="export" class="recent"></div>
+      </section>
+    </main>
+    <footer><span id="footer-count">0 log entries</span><span>MRBD RESULT: NOT TESTED</span></footer>
+  </div>
+  <script type="module" src="/app.js"></script>
+</body>
+</html>

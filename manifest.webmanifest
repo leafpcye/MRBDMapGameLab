@@ -1,0 +1,10 @@
+{
+  "name": "MRBD Capability Probe",
+  "short_name": "MRBD Probe",
+  "description": "Phase 1A runtime, input, storage, lifecycle, network and log export probe.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#050807",
+  "theme_color": "#050807",
+  "icons": []
+}
