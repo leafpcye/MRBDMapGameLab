@@ -1,131 +1,107 @@
-# MRBD Phase 1A — First Real-Device Test Plan
+# MRBD Phase 1A — First Real-Device Session
 
-Do not fill expected event names from desktop assumptions. Before each test, record app version, Git commit, short session ID, tester, device/software versions, date/time, and network condition. Export after each test where possible.
+Target duration: **15–25 minutes**.
 
-**Deployment entry point:** `https://leafpcye.github.io/MRBDMapGameLab/`
+Verified Phase 1A URL:
 
-Before using it on MRBD, confirm the URL returns the intended build. Until the GitHub Pages workflow is verified, record its status as `Pending GitHub Pages activation`.
+```text
+https://leafpcye.github.io/MRBDMapGameLab/
+```
 
-## Test 1 — First open
+The public static deployment was verified on **2026-07-29** at version `0.1.0`, commit `f241cb0`. This is not MRBD compatibility evidence. Do not guess device versions or expected Neural Band event names.
 
-**Preconditions:** MRBD and paired iPhone are online; the deployed Phase 1A URL above has been verified in a desktop precheck; no MRBD result has been assumed.
+Use [results/phase-1a-first-device-session-template.md](results/phase-1a-first-device-session-template.md) while testing. Export after important steps when possible.
 
-**Steps:**
+## Test 0 — Record device environment · 2 minutes
 
-1. From Meta AI App, attempt to open/add the Web App.
-2. Record whether a page appears and where.
-3. Open Environment and run the probe.
-4. Review, but do not interpret API presence as working capability.
-5. Export JSON; if unavailable, use Clipboard or Text fallback.
+Record:
 
-**Expected observations:** Load outcome, visible dimensions, runtime values, API presence labels, page/session/build identity, export behavior.
+- date and local time;
+- MRBD system version;
+- Meta AI App version;
+- iPhone model and iOS version;
+- whether Neural Band is connected;
+- phone network condition;
+- exact Web App URL.
 
-**Success criteria:** The page is operable and evidence can be read or extracted.  
-**Failure criteria:** It does not open, becomes inoperable, or no evidence can be captured. Record the exact screen/error.  
-**Actual result:** ______________________________  
-**Log file/location:** __________________________  
-**Retest needed:** Yes / No — reason: __________________
+Do not infer or auto-fill any version.
 
-## Test 2 — Neural Band input
+## Test 1 — Open the Web App · 3–5 minutes
 
-**Preconditions:** Input page visible; press Start. Run once with navigation-default prevention Off, then repeat selected actions with it On.
+1. In Meta AI App, add `https://leafpcye.github.io/MRBDMapGameLab/`.
+2. Open it in MRBD.
+3. Record whether the homepage is complete and all six module entries are visible.
+4. Record displayed App version and Git commit.
+5. Open Environment and run **Run Environment Probe**.
+6. Export or preserve the Environment evidence.
 
-**Steps:**
+Success means the page opens, at least one module can be entered, and it does not immediately crash or repeatedly reload. On failure, classify it as: cannot open, white screen, 404, partial display, input inoperable, repeated reload, or exact displayed error.
 
-1. Perform Up, Down, Left, Right separately.
-2. Perform index-finger pinch, then middle-finger pinch.
-3. Perform rapid repeated actions.
-4. Repeat across A Single Button, B Vertical List, C Horizontal Selector, and D Long List.
-5. Observe focus, selection, scroll, total events, raw fields, and keydown/keyup pairing.
-6. Press Stop and export logs.
+## Test 2 — Neural Band basic input · 7–10 minutes
 
-**Expected observations:** Whatever raw events actually occur; control and focus before/after; whether keyup pairs exist; boundary and scroll behavior. Do not preassign event names to gestures.
+Open Input and press **Start**. Leave at least about one second between actions:
 
-**Success criteria:** The observed event stream and focus effects are distinguishable and exportable.  
-**Failure criteria:** Actions create no evidence, focus is lost without recovery, app locks, or logs cannot be exported. “No event” is still a meaningful device result.  
-**Actual result:** ______________________________  
-**Log file/location:** __________________________  
-**Retest needed:** Yes / No — reason: __________________
+1. swipe up;
+2. swipe down;
+3. swipe left;
+4. swipe right;
+5. index-finger pinch;
+6. middle-finger pinch.
 
-## Test 3 — Close and reopen
+Repeat relevant actions on:
 
-**Preconditions:** Web App open; note current session, page instance, launch count.
+- Single Button;
+- Vertical List;
+- Horizontal Selector;
+- Long List.
 
-**Steps:**
+Record the actual event type, `key`, `code`, keydown/keyup presence, click, focus movement, system behavior, and the difference before/after enabling **Prevent navigation defaults**. Do not assume middle-finger pinch maps to Escape or that a missing keyup means a long press.
 
-1. Storage → enter a unique value and run localStorage test.
-2. Record the value and launch count.
-3. Close the Web App using the normal MRBD flow.
-4. Reopen it from the same entry point.
-5. Run localStorage test without replacing the expected value first; inspect launch metadata.
-6. Export Environment, Storage, and Lifecycle evidence.
+Press **Stop** and preserve Input evidence.
 
-**Expected observations:** Whether value, launch count, session, and page instance persist/change.  
-**Success criteria:** Actual persistence behavior is unambiguously recorded.  
-**Failure criteria:** App crashes, values cannot be inspected, or behavior cannot be distinguished.  
-**Actual result:** ______________________________  
-**Log file/location:** __________________________  
-**Retest needed:** Yes / No — reason: __________________
+## Test 3 — localStorage close and reopen · 3–5 minutes
 
-## Test 4 — MRBD restart
+1. Open Storage.
+2. Enter `phase1a-reopen-test`.
+3. Run the localStorage test.
+4. Record the launch count and displayed value.
+5. Close the Web App normally.
+6. Reopen it.
+7. Check the value and launch count again.
+8. Export the available log.
 
-**Preconditions:** Device charged; unique localStorage value recorded.
+This first session tests only normal close/reopen. Full MRBD restart, IndexedDB depth testing, and offline cold-start are deferred.
 
-**Steps:**
+## Test 4 — Find a log export path · 3–5 minutes
 
-1. Write the value using the localStorage test.
-2. Lifecycle → enter and record `Before MRBD restart`.
-3. Restart MRBD using its normal user procedure.
-4. Reopen the same Web App.
-5. Record build/session/page/launch identities and run localStorage test.
-6. Export all available evidence.
+Try in this order:
 
-**Expected observations:** Actual survival/loss of stored state and available lifecycle evidence; a pre-restart unload event is not assumed.  
-**Success criteria:** Post-restart state is observed and labeled.  
-**Failure criteria:** Reopen or evidence extraction is impossible.  
-**Actual result:** ______________________________  
-**Log file/location:** __________________________  
-**Retest needed:** Yes / No — reason: __________________
+1. Web Share;
+2. Clipboard;
+3. JSON Blob Download;
+4. Text Fallback.
 
-## Test 5 — Service Worker and offline
+For each, record button availability, share panel behavior, copy result, final file/text destination, no response, or exact error name/message.
 
-**Preconditions:** Online; use the exact same origin/URL throughout.
+Priority evidence is the complete JSON log. If that cannot be retrieved, preserve at least:
 
-**Steps:**
+- Environment Summary;
+- screenshot of recent Input events;
+- screenshot of Storage status;
+- Text Fallback text.
 
-1. Storage → Register Service Worker.
-2. Record scope, installing/waiting/active, and controller.
-3. Close the page.
-4. Disconnect the relevant network path.
-5. Attempt to reopen from the normal MRBD entry point.
-6. Record blank/error/content behavior and whether it was a warm or cold launch.
-7. Reconnect and export logs; use Update/Unregister only if needed.
+## Test 5 — End marker · 1 minute
 
-**Expected observations:** Actual registration states and actual offline reopen behavior. Offline success is not presumed and registration alone is not counted as success.
+1. Open Lifecycle.
+2. Add marker:
 
-**Success criteria:** The offline outcome can be clearly classified with evidence.  
-**Failure criteria:** Outcome is ambiguous or falsely inferred from registration.  
-**Actual result:** ______________________________  
-**Log file/location:** __________________________  
-**Retest needed:** Yes / No — reason: __________________
+   ```text
+   End of Phase 1A first MRBD session
+   ```
 
-## Test 6 — Log export routes
+3. Attempt one final log export.
+4. Return the completed template, logs, screenshots, and any error text.
 
-**Preconditions:** Generate Environment plus at least five Input/Lifecycle events.
+## Stop point
 
-**Steps:**
-
-1. Try JSON download.
-2. Try CSV download.
-3. Try Web Share.
-4. Try Copy Summary and Copy Full JSON.
-5. Try Show Export Text and navigate segments if present.
-6. For each, record where evidence appears: MRBD, iPhone, share panel, download directory, no response, or error.
-
-**Expected observations:** API presence, click/invocation, resolved/rejected promise, exact error, and real final destination. A resolved action is not automatically a confirmed saved file.
-
-**Success criteria:** At least one route produces retrievable evidence and every attempted route is honestly classified.  
-**Failure criteria:** No route retrieves evidence or the final destination cannot be established.  
-**Actual result:** JSON ______ CSV ______ Share ______ Clipboard ______ Text ______  
-**Log file/location:** __________________________  
-**Retest needed:** Yes / No — reason: __________________
+Stop after Test 5. Do not perform MRBD restart, offline cold-start, Location, Motion/Orientation, Audio, maps, or game tests during this first session.

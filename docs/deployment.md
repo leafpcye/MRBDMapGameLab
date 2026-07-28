@@ -40,17 +40,15 @@ Do not create a `gh-pages` branch.
 
 ## Deployment URL
 
-Expected project URL:
+Verified Phase 1A URL:
 
 ```text
 https://leafpcye.github.io/MRBDMapGameLab/
 ```
 
-Until the Pages workflow completes and the URL returns the current build, its status is:
+Verified on **2026-07-29** using direct HTTPS requests. The HTML, stylesheet, application modules, manifest, Service Worker, and Build Info were non-empty and returned the expected content types. The deployed Build Info reported version `0.1.0` and commit `f241cb0`, matching `origin/main`; a missing-file request returned 404.
 
-```text
-Pending GitHub Pages activation
-```
+This acceptance covers public static delivery only. It does not verify that MRBD can open the URL, map Neural Band actions, retain storage, deliver lifecycle events, export logs, or cold-start offline.
 
 ## Verification
 
@@ -89,7 +87,7 @@ Use Storage → **Unregister SW** in the probe. On a desktop browser, developer 
 
 ## Add to Meta AI App
 
-Only after the HTTPS URL has been verified:
+The HTTPS URL is now verified for public static access:
 
 1. Use the Meta AI App flow for adding/opening a Web App.
 2. Enter the full project URL including the trailing `/MRBDMapGameLab/`.

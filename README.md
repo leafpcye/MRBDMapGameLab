@@ -6,9 +6,9 @@ This repository does **not** contain Location, Motion/Orientation, Audio, speech
 
 Repository: [leafpcye/MRBDMapGameLab](https://github.com/leafpcye/MRBDMapGameLab)
 
-GitHub Pages target: [https://leafpcye.github.io/MRBDMapGameLab/](https://leafpcye.github.io/MRBDMapGameLab/)
+Verified Phase 1A URL: [https://leafpcye.github.io/MRBDMapGameLab/](https://leafpcye.github.io/MRBDMapGameLab/)
 
-The Pages URL must be treated as pending until its workflow has completed successfully. A successful deployment is still only deployment evidence, not an MRBD capability result.
+Public static deployment was verified on **2026-07-29**: the page and required resources returned the deployed `0.1.0` build at commit `f241cb0`. “Verified” here means only that the GitHub Pages artifact is publicly accessible. It does not establish MRBD Runtime compatibility, Neural Band input behavior, storage persistence, lifecycle behavior, or offline capability.
 
 ## Local development
 
@@ -85,3 +85,5 @@ Every structured export includes an Environment snapshot, build version, Git com
 ## Evidence boundary
 
 Desktop Chrome/Safari and iPhone Safari results are prechecks only. They must never be reported as MRBD Runtime or Neural Band results. Follow [docs/mrbd-phase-1a-test-plan.md](docs/mrbd-phase-1a-test-plan.md) on real hardware and preserve the exported logs.
+
+The next action is for the user to add the verified URL in Meta AI App and complete the 15–25 minute first-device session. Phase 1B remains out of scope until real-device evidence is returned.
