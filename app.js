@@ -741,13 +741,24 @@ window.addEventListener("online", updateNetworkStatus);
 window.addEventListener("offline", updateNetworkStatus);
 function updateNetworkStatus(event) {
   $("#network-status").textContent = navigator.onLine ? "ONLINE*" : "OFFLINE*";
+  $("#network-runtime-state").textContent = navigator.onLine ? "true · runtime reports online" : "false · not proof of no internet";
+  $("#network-cached-page").textContent = navigator.serviceWorker?.controller
+    ? "Service Worker controller present; cache contents not verified"
+    : "No controlling Service Worker observed";
   if (event?.type) logger.log("network", event.type, { navigatorOnLine: navigator.onLine });
 }
 $("#run-network").addEventListener("click", async () => {
-  $("#network-probe-status").textContent = "Fetch running…";
-  const result = await runNetworkProbe(logger, $("#bypass-cache").checked);
+  $("#network-probe-status").textContent = "Same-origin live fetch running…";
+  const result = await runNetworkProbe(logger);
   renderRows($("#network-output"), Object.entries(flatten(result)));
-  $("#network-probe-status").textContent = result.error ? `${result.error.name}: ${result.error.message}` : `HTTP ${result.status} in ${result.durationMs} ms`;
+  $("#network-live-fetch").textContent = result.liveFetchSucceeded ? "Succeeded" : "Failed";
+  $("#network-cached-page").textContent = result.likelyCachedPageAvailable
+    ? "Service Worker controller present; cache contents not verified"
+    : "No controlling Service Worker observed";
+  $("#network-last-status").textContent = result.status === null ? "No HTTP response" : `HTTP ${result.status}`;
+  if (result.liveFetchSucceeded) $("#network-last-success").textContent = result.endedAt;
+  if (result.error) $("#network-last-error").textContent = `${result.error.name}: ${result.error.message}`;
+  $("#network-probe-status").textContent = result.interpretation;
 });
 
 let exportSegments = [];
@@ -804,38 +815,121 @@ $("#clear-all").addEventListener("click", () => { logger.clear(); setExportStatu
 const locationThresholds = { ...DEFAULT_LOCATION_THRESHOLDS };
 let latestLocationRecord = null;
 const locationMarkers = [];
+let selectedLocationPreset = "high-accuracy";
+let locationPermissionState = "unavailable";
+let locationPermissionError = null;
+let lastLocationInput = "None";
+let lastTrustedLocationInput = "None";
+let locationElapsedTimer = null;
+
+function renderLocationRequest(snapshot) {
+  $("#location-request-state").textContent = snapshot.state;
+  $("#geo-last-input").textContent = lastLocationInput;
+  $("#geo-last-trusted-input").textContent = lastTrustedLocationInput;
+  $("#geo-last-activation").textContent = `active ${snapshot.userActivationIsActive} · ever ${snapshot.userActivationHasBeenActive}`;
+  $("#geo-handler-entered").textContent = snapshot.handlerEntered ? "Yes" : "No";
+  $("#geo-call-issued").textContent = snapshot.callIssued ? "Yes" : "No";
+  renderRows($("#location-request-output"), Object.entries(flatten({
+    geolocationApiPresent: Boolean(navigator.geolocation),
+    requestId: snapshot.requestId,
+    requestState: snapshot.state,
+    triggerSource: snapshot.triggerSource,
+    trustedEvent: snapshot.inputEventIsTrusted,
+    userActivationIsActive: snapshot.userActivationIsActive,
+    userActivationHasBeenActive: snapshot.userActivationHasBeenActive,
+    permissionBefore: snapshot.permissionStateBefore,
+    permissionAfter: snapshot.permissionStateAfter,
+    permissionsApiPresent: Boolean(navigator.permissions?.query),
+    latestPermissionQueryState: locationPermissionState,
+    latestPermissionQueryError: locationPermissionError,
+    permissionQueryErrorBefore: snapshot.permissionQueryErrorBefore,
+    permissionQueryErrorAfter: snapshot.permissionQueryErrorAfter,
+    elapsedMs: snapshot.elapsedMs,
+    lastTransition: snapshot.lastTransition
+  })));
+  const result = snapshot.result || {};
+  renderRows($("#location-quick-result"), Object.entries(flatten({
+    input: `${snapshot.state !== "idle" ? "received" : "none"} · trusted ${snapshot.inputEventIsTrusted}`,
+    userActivation: `active ${snapshot.userActivationIsActive} · ever ${snapshot.userActivationHasBeenActive}`,
+    execution: `handler ${snapshot.handlerEntered ? "yes" : "no"} · call ${snapshot.callIssued ? "yes" : "no"}`,
+    permission: `before ${snapshot.permissionStateBefore} · after ${snapshot.permissionStateAfter}`,
+    request: `${snapshot.requestId} · ${snapshot.state} · ${snapshot.elapsedMs} ms`,
+    result: `lat ${result.latitudePresent ?? "?"} · lon ${result.longitudePresent ?? "?"} · accuracy ${result.accuracy ?? "?"} m`,
+    error: `${result.error?.codeName ?? "none"} · ${result.error?.message ?? "none"}`
+  })));
+  $("#location-status").textContent = snapshot.state === "client-timeout"
+    ? "client-timeout: No success or error callback was received before the diagnostic watchdog expired."
+    : snapshot.state === "idle"
+      ? "No request issued · idle"
+      : `Request ${snapshot.requestId} · ${snapshot.state}`;
+  clearInterval(locationElapsedTimer);
+  locationElapsedTimer = null;
+  if (["request-entered", "request-issued", "waiting"].includes(snapshot.state)) {
+    locationElapsedTimer = setInterval(() => renderLocationRequest(locationProbe.requestSnapshot()), 250);
+  }
+}
+
+function renderLocationData(update = {}) {
+  if (update.record) latestLocationRecord = update.record;
+  $("#location-watch").textContent = (update.active ?? locationProbe.isActive()) ? "Active" : "Stopped";
+  const snapshot = locationProbe.snapshot();
+  const latest = update.record || latestLocationRecord;
+  $("#location-callback-age").textContent = snapshot.summary.lastCallbackAgeMs === null
+    ? "—"
+    : `${Math.round(snapshot.summary.lastCallbackAgeMs)} ms`;
+  renderRows($("#location-position-summary"), Object.entries(flatten({
+    positionReceived: Boolean(latest),
+    latitudePresent: Number.isFinite(latest?.raw?.latitude),
+    longitudePresent: Number.isFinite(latest?.raw?.longitude),
+    accuracyM: latest?.raw?.accuracy ?? null,
+    speedMps: latest?.raw?.speed ?? null,
+    headingDegrees: latest?.raw?.heading ?? null,
+    altitudeM: latest?.raw?.altitude ?? null,
+    receivedAt: latest?.receivedAt ?? null,
+    flags: latest?.flags ?? []
+  })));
+  renderRows($("#location-current"), Object.entries(flatten(latest || { position: "No position received" })));
+  renderRows($("#location-summary"), Object.entries(flatten(snapshot.summary)));
+  renderRows($("#location-quality-output"), Object.entries(flatten({
+    thresholds: locationThresholds,
+    latestFlags: latest?.flags ?? [],
+    rawCumulativeDistanceM: snapshot.summary.cumulativeDistanceM,
+    flaggedPointDistanceImpactM: snapshot.summary.flaggedDistanceM
+  })));
+  renderCombined();
+}
+
 const locationProbe = createLocationProbe({
   logger,
   runtimeContext,
   thresholds: locationThresholds,
+  onRequestTransition: renderLocationRequest,
   onUpdate(update) {
-    if (update.record) latestLocationRecord = update.record;
-    $("#location-status").textContent = update.status || "Ready";
-    $("#location-watch").textContent = update.active ? "Active" : "Stopped";
-    if (update.error?.codeName === "PERMISSION_DENIED") $("#location-permission").textContent = "Denied";
-    const snapshot = locationProbe.snapshot();
-    $("#location-count").textContent = String(snapshot.summary.sampleCount);
-    renderRows($("#location-current"), Object.entries(flatten(update.record || latestLocationRecord || { position: "No position received" })));
-    renderRows($("#location-summary"), Object.entries(flatten(snapshot.summary)));
-    renderCombined();
+    if (update.error) $("#location-status").textContent = `${update.error.codeName}: ${update.error.message}`;
+    renderLocationData(update);
   }
 });
-$("#location-api").textContent = navigator.geolocation ? "Present · operation not yet tested" : "Missing";
-if (navigator.permissions?.query) {
-  navigator.permissions.query({ name: "geolocation" }).then((status) => {
-    $("#location-permission").textContent = status.state;
-    logger.log("location", "permission-state-observed", { state: status.state, source: "Permissions API; no prompt requested" });
-    status.addEventListener?.("change", () => {
-      $("#location-permission").textContent = status.state;
-      logger.log("location", "permission-state-changed", { state: status.state });
-    });
-  }).catch((error) => {
-    $("#location-permission").textContent = `Permission state unavailable: ${error.name}`;
-    logger.log("location", "permission-query-failed", errorDetails(error));
+
+async function refreshLocationPermission() {
+  const result = await locationProbe.refreshPermission();
+  locationPermissionState = result.state;
+  locationPermissionError = result.error;
+  $("#location-permission-note").textContent = result.state === "denied"
+    ? "Permission is denied. One explicit test request is still allowed; the MRBD Runtime or host may control recovery."
+    : result.state === "query-error"
+      ? `Permission query error: ${result.error?.name}: ${result.error?.message}`
+      : `Permissions API: ${result.apiPresent ? "present" : "missing"} · state ${result.state}`;
+  logger.log("location", "permission-state-refreshed", {
+    permissionsApiPresent: result.apiPresent,
+    state: result.state,
+    error: result.error,
+    note: "Query only; no location request issued"
   });
-} else {
-  $("#location-permission").textContent = "Permission state unavailable";
+  renderLocationRequest(locationProbe.requestSnapshot());
+  return result;
 }
+$("#refresh-location-permission").addEventListener("click", refreshLocationPermission);
+refreshLocationPermission();
 
 function syncLocationOptions() {
   Object.assign(locationThresholds, {
@@ -845,14 +939,73 @@ function syncLocationOptions() {
     duplicateToleranceM: Number($("#threshold-duplicate").value),
     longCallbackGapMs: Number($("#threshold-gap").value)
   });
-  const options = locationProbe.setOptions(LOCATION_PRESETS[$("#location-preset").value]);
+  const options = locationProbe.setOptions(LOCATION_PRESETS[selectedLocationPreset]);
   renderRows($("#location-options-output"), Object.entries(options));
   return options;
 }
-$("#location-one").addEventListener("click", () => { syncLocationOptions(); $("#location-permission").textContent = "Requested by Get One"; locationProbe.getOne(); });
-$("#location-start").addEventListener("click", () => { syncLocationOptions(); $("#location-permission").textContent = "Requested by Start Watch"; locationProbe.startWatch(); });
+
+$$("[data-location-preset]").forEach((button) => button.addEventListener("click", () => {
+  selectedLocationPreset = button.dataset.locationPreset;
+  $$("[data-location-preset]").forEach((item) => item.setAttribute("aria-pressed", String(item === button)));
+  syncLocationOptions();
+  logger.log("location", "preset-selected", { preset: selectedLocationPreset, options: LOCATION_PRESETS[selectedLocationPreset] });
+}));
+$(".preset-selector").addEventListener("keydown", (event) => {
+  if (!["ArrowLeft", "ArrowRight"].includes(event.key)) return;
+  const buttons = $$("[data-location-preset]");
+  const index = buttons.indexOf(document.activeElement);
+  if (index < 0) return;
+  event.preventDefault();
+  buttons[Math.max(0, Math.min(buttons.length - 1, index + (event.key === "ArrowLeft" ? -1 : 1)))].focus();
+});
+
+function recordLocationInput(event) {
+  lastLocationInput = `${event.type} ${event.key || "(no key)"} · trusted ${Boolean(event.isTrusted)}`;
+  if (event.isTrusted) lastTrustedLocationInput = `${event.type} ${event.key || "(no key)"}`;
+}
+
+function installOneShotTrigger(button) {
+  button.addEventListener("keydown", (event) => {
+    if (event.key !== "Enter") return;
+    recordLocationInput(event);
+    if (!event.isTrusted) {
+      logger.log("location", "untrusted-enter-observed", { type: event.type, key: event.key, isTrusted: event.isTrusted });
+      renderLocationRequest(locationProbe.requestSnapshot());
+      return;
+    }
+    event.preventDefault();
+    syncLocationOptions();
+    // Direct request in this trusted keydown stack: no click(), await, timer, or promise.
+    locationProbe.requestOneFromTrustedEnter(event, locationPermissionState);
+  });
+  button.addEventListener("click", (event) => {
+    recordLocationInput(event);
+    syncLocationOptions();
+    // Direct request in this native click stack.
+    locationProbe.requestOneFromClick(event, locationPermissionState);
+  });
+}
+installOneShotTrigger($("#location-quick"));
+installOneShotTrigger($("#location-one"));
+
+$("#location-start").addEventListener("click", () => {
+  syncLocationOptions();
+  $("#location-status").textContent = "Watch request issued by explicit click";
+  locationProbe.startWatch();
+});
 $("#location-stop").addEventListener("click", () => locationProbe.stopWatch());
-$("#location-clear").addEventListener("click", () => { latestLocationRecord = null; locationProbe.clear(); });
+$("#location-clear").addEventListener("click", () => {
+  locationProbe.cancelRequest();
+  latestLocationRecord = null;
+  locationProbe.clear();
+  renderLocationData();
+});
+$("#location-details-toggle").addEventListener("click", () => {
+  const expanded = $("#location-details-toggle").getAttribute("aria-expanded") === "true";
+  $("#location-details-toggle").setAttribute("aria-expanded", String(!expanded));
+  $("#location-details-toggle").textContent = expanded ? "Show Coordinate Details" : "Hide Coordinate Details";
+  $("#location-current").hidden = expanded;
+});
 $("#location-marker").addEventListener("click", () => {
   locationMarkers.push(locationProbe.addMarker($("#location-marker-note").value.trim()));
   $("#location-status").textContent = "Location marker recorded";
@@ -893,6 +1046,7 @@ $("#location-export").addEventListener("click", () => {
 });
 
 let motionSamplingHz = 10;
+let motionMarkerPreset = "Baseline — both still";
 const motionMarkers = [];
 const motionUi = { orientation: null, motion: null, permission: null };
 const motionProbe = createMotionProbe({
@@ -940,8 +1094,12 @@ $$("[data-sampling-hz]").forEach((button) => button.addEventListener("click", ()
   motionProbe.setSamplingHz(motionSamplingHz);
   $$("[data-sampling-hz]").forEach((item) => item.setAttribute("aria-pressed", String(item === button)));
 }));
+$$("[data-motion-marker-preset]").forEach((button) => button.addEventListener("click", () => {
+  motionMarkerPreset = button.dataset.motionMarkerPreset;
+  $$("[data-motion-marker-preset]").forEach((item) => item.setAttribute("aria-pressed", String(item === button)));
+}));
 $("#motion-marker").addEventListener("click", () => {
-  const note = [$("#motion-marker-preset").value, $("#motion-marker-note").value.trim()].filter(Boolean).join(" · ");
+  const note = [motionMarkerPreset, $("#motion-marker-note").value.trim()].filter(Boolean).join(" · ");
   motionMarkers.push(motionProbe.addMarker(note));
   $("#motion-status").textContent = "IMU marker recorded";
 });
@@ -1046,11 +1204,9 @@ $("#combined-export").addEventListener("click", () => {
 
 function installTwoPagePager(prefix, titles) {
   let index = 0;
-  const panels = prefix === "location"
-    ? [$("#location-current"), $("#location-summary")]
-    : prefix === "motion"
-      ? [$("#orientation-panel"), $("#motion-panel")]
-      : [$("#combined-detail"), $("#combined-log")];
+  const panels = prefix === "motion"
+    ? [$("#orientation-panel"), $("#motion-panel")]
+    : [$("#combined-detail"), $("#combined-log")];
   const render = () => {
     panels.forEach((panel, panelIndex) => { panel.hidden = panelIndex !== index; });
     $(`#${prefix}-page-title`).textContent = `${titles[index]} · ${index + 1}/${titles.length}`;
@@ -1061,20 +1217,43 @@ function installTwoPagePager(prefix, titles) {
   $(`#${prefix}-next`).addEventListener("click", () => { index = Math.min(titles.length - 1, index + 1); render(); });
   render();
 }
-installTwoPagePager("location", ["Current", "Session Summary"]);
+
+function installLocationPager() {
+  const pages = [
+    { key: "request", title: "Request" },
+    { key: "current", title: "Current Position" },
+    { key: "stats", title: "Session Stats" },
+    { key: "quality", title: "Quality" },
+    { key: "events", title: "Recent Events" }
+  ];
+  let index = 0;
+  const render = () => {
+    $$("[data-location-page]").forEach((panel) => { panel.hidden = panel.dataset.locationPage !== pages[index].key; });
+    $("#location-page-label").textContent = `Location — ${index + 1}/${pages.length} · ${pages[index].title}`;
+    $("#location-previous").disabled = index === 0;
+    $("#location-next").disabled = index === pages.length - 1;
+    logger.log("location", "instrument-page-changed", { page: pages[index].key, pageNumber: index + 1, totalPages: pages.length });
+  };
+  $("#location-previous").addEventListener("click", () => { index = Math.max(0, index - 1); render(); });
+  $("#location-next").addEventListener("click", () => { index = Math.min(pages.length - 1, index + 1); render(); });
+  render();
+}
+installLocationPager();
 installTwoPagePager("motion", ["Orientation", "Motion"]);
 installTwoPagePager("combined", ["Status", "Recent Combined Events"]);
-renderRows($("#location-current"), [["Position", "No position received"]]);
-renderRows($("#location-summary"), Object.entries(locationProbe.snapshot().summary));
 syncLocationOptions();
+renderLocationRequest(locationProbe.requestSnapshot());
+renderLocationData();
 renderRows($("#orientation-output"), [["Orientation", "No sample"]]);
 renderRows($("#motion-output"), [["Motion", "No sample"]]);
 renderCombined();
 
 window.addEventListener("pagehide", () => {
+  locationProbe.cancelRequest();
   locationProbe.stopWatch();
   motionProbe.stopBoth();
   clearInterval(combinedTimer);
+  clearInterval(locationElapsedTimer);
 });
 
 function flatten(value, prefix = "", result = {}) {

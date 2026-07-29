@@ -2,9 +2,276 @@ import { errorDetails } from "./storage.js";
 
 export const LOCATION_PRESETS = {
   "high-accuracy": { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 },
-  balanced: { enableHighAccuracy: false, timeout: 15000, maximumAge: 5000 },
+  balanced: { enableHighAccuracy: false, timeout: 10000, maximumAge: 5000 },
   "cached-quick": { enableHighAccuracy: false, timeout: 5000, maximumAge: 60000 }
 };
+
+export const GEOLOCATION_REQUEST_STATES = [
+  "idle",
+  "input-received",
+  "request-entered",
+  "request-issued",
+  "waiting",
+  "success",
+  "error",
+  "client-timeout",
+  "cancelled"
+];
+
+export function formatDiagnosticValue(value) {
+  if (value === undefined) return "(undefined)";
+  if (value === null) return "(null)";
+  if (value === "") return "(empty)";
+  return String(value);
+}
+
+export function userActivationSnapshot(navigatorObject = globalThis.navigator) {
+  const activation = navigatorObject?.userActivation;
+  return {
+    isActive: activation ? Boolean(activation.isActive) : "unavailable",
+    hasBeenActive: activation ? Boolean(activation.hasBeenActive) : "unavailable"
+  };
+}
+
+export async function queryGeolocationPermission(permissions = globalThis.navigator?.permissions) {
+  if (!permissions?.query) {
+    return { apiPresent: false, state: "unavailable", error: null };
+  }
+  try {
+    const status = await permissions.query({ name: "geolocation" });
+    return { apiPresent: true, state: status?.state || "unavailable", error: null, status };
+  } catch (error) {
+    return { apiPresent: true, state: "query-error", error: errorDetails(error) };
+  }
+}
+
+export function createGeolocationRequestMachine({
+  geolocation = globalThis.navigator?.geolocation,
+  permissions = globalThis.navigator?.permissions,
+  logger,
+  onTransition = () => {},
+  onSuccess = () => {},
+  onError = () => {},
+  now = () => Date.now(),
+  monotonicNow = () => globalThis.performance?.now?.() ?? 0,
+  schedule = (callback, delay) => setTimeout(callback, delay),
+  cancelSchedule = (token) => clearTimeout(token),
+  idFactory
+} = {}) {
+  let sequence = 0;
+  let watchdog = null;
+  let active = null;
+  let lastTrustedEnterAt = -Infinity;
+
+  const makeId = idFactory || (() => `geo-one-${String(++sequence).padStart(4, "0")}`);
+  const log = (event, payload) => logger?.log?.("location", event, payload);
+
+  function snapshot() {
+    if (!active) {
+      return {
+        requestId: "—",
+        state: "idle",
+        elapsedMs: 0,
+        lastTransition: "idle",
+        triggerSource: "—",
+        inputEventType: "—",
+        inputEventKey: "—",
+        inputEventIsTrusted: "—",
+        userActivationIsActive: "unavailable",
+        userActivationHasBeenActive: "unavailable",
+        permissionStateBefore: "unavailable",
+        permissionStateAfter: "unavailable",
+        handlerEntered: false,
+        callIssued: false,
+        result: null
+      };
+    }
+    return {
+      ...active,
+      elapsedMs: Math.max(0, now() - active.startedAtMs)
+    };
+  }
+
+  function transition(state, detail = {}) {
+    if (!GEOLOCATION_REQUEST_STATES.includes(state)) throw new TypeError(`Unknown geolocation request state: ${state}`);
+    active = {
+      ...active,
+      ...detail,
+      state,
+      lastTransition: state,
+      lastTransitionAt: new Date(now()).toISOString()
+    };
+    const value = snapshot();
+    log("request-transition", value);
+    onTransition(value);
+    return value;
+  }
+
+  function finishWatchdog() {
+    if (watchdog !== null) cancelSchedule(watchdog);
+    watchdog = null;
+  }
+
+  function updatePermission(phase, result, requestId = active?.requestId) {
+    if (!active || active.requestId !== requestId) return;
+    const key = phase === "before" ? "permissionStateBefore" : "permissionStateAfter";
+    const errorKey = phase === "before" ? "permissionQueryErrorBefore" : "permissionQueryErrorAfter";
+    active = { ...active, [key]: result.state, [errorKey]: result.error };
+    log(`permission-${phase}`, { requestId: active.requestId, state: result.state, error: result.error });
+    onTransition(snapshot());
+  }
+
+  function refreshPermissionAfter() {
+    const requestId = active?.requestId;
+    queryGeolocationPermission(permissions).then((result) => updatePermission("after", result, requestId));
+  }
+
+  function settleSuccess(position) {
+    if (!active || !["request-entered", "request-issued", "waiting"].includes(active.state)) return;
+    finishWatchdog();
+    const coords = position?.coords || {};
+    transition("success", {
+      result: {
+        latitudePresent: Number.isFinite(coords.latitude),
+        longitudePresent: Number.isFinite(coords.longitude),
+        accuracy: coords.accuracy ?? null,
+        error: null
+      }
+    });
+    onSuccess(position, snapshot());
+    refreshPermissionAfter();
+  }
+
+  function settleError(error) {
+    if (!active || !["request-entered", "request-issued", "waiting"].includes(active.state)) return;
+    finishWatchdog();
+    const details = geolocationErrorDetails(error);
+    transition("error", {
+      result: {
+        latitudePresent: false,
+        longitudePresent: false,
+        accuracy: null,
+        error: details
+      }
+    });
+    onError(error, snapshot());
+    refreshPermissionAfter();
+  }
+
+  function start(input, selectedOptions, permissionStateBefore = "unavailable") {
+    const startedAtMs = now();
+    active = {
+      requestId: makeId(),
+      state: "idle",
+      startedAt: new Date(startedAtMs).toISOString(),
+      startedAtMs,
+      startedPerformanceMs: Number(monotonicNow().toFixed?.(2) ?? monotonicNow()),
+      triggerSource: input.triggerSource || "unknown",
+      inputEventType: input.inputEventType ?? null,
+      inputEventKey: input.inputEventKey ?? null,
+      inputEventIsTrusted: Boolean(input.inputEventIsTrusted),
+      userActivationIsActive: input.userActivation?.isActive ?? "unavailable",
+      userActivationHasBeenActive: input.userActivation?.hasBeenActive ?? "unavailable",
+      permissionStateBefore,
+      permissionStateAfter: "unavailable",
+      permissionQueryErrorBefore: null,
+      permissionQueryErrorAfter: null,
+      selectedOptions: { ...selectedOptions },
+      handlerEntered: false,
+      callIssued: false,
+      result: null
+    };
+    transition("input-received");
+    transition("request-entered", { handlerEntered: true });
+
+    try {
+      if (!geolocation?.getCurrentPosition) throw Object.assign(new Error("Geolocation API missing"), { name: "MissingAPIError" });
+      // Nothing asynchronous is inserted before this privileged API call.
+      geolocation.getCurrentPosition(settleSuccess, settleError, selectedOptions);
+      if (active?.state === "request-entered") {
+        transition("request-issued", { callIssued: true });
+        transition("waiting");
+        watchdog = schedule(() => {
+          if (active?.state !== "waiting") return;
+          transition("client-timeout", {
+            result: {
+              latitudePresent: false,
+              longitudePresent: false,
+              accuracy: null,
+              error: {
+                name: "ClientTimeoutError",
+                code: null,
+                codeName: "CLIENT_TIMEOUT",
+                message: "No success or error callback was received before the diagnostic watchdog expired."
+              }
+            }
+          });
+          refreshPermissionAfter();
+        }, Number(selectedOptions.timeout) + 2000);
+      }
+    } catch (error) {
+      settleError(error);
+    }
+    return snapshot();
+  }
+
+  function requestFromTrustedEnter(event, selectedOptions, permissionStateBefore) {
+    if (event?.key !== "Enter" || event?.isTrusted !== true) return { accepted: false, reason: "not-trusted-enter", snapshot: snapshot() };
+    if (active && ["request-entered", "request-issued", "waiting"].includes(active.state)) {
+      log("request-input-deduplicated", {
+        requestId: active.requestId,
+        reason: "request-in-flight",
+        inputEventType: event.type,
+        inputEventKey: event.key,
+        inputEventIsTrusted: true
+      });
+      return { accepted: false, reason: "request-in-flight", snapshot: snapshot() };
+    }
+    lastTrustedEnterAt = now();
+    return { accepted: true, snapshot: start({
+      triggerSource: "keyboard",
+      inputEventType: event.type,
+      inputEventKey: event.key,
+      inputEventIsTrusted: event.isTrusted,
+      userActivation: event.userActivation || userActivationSnapshot()
+    }, selectedOptions, permissionStateBefore) };
+  }
+
+  function requestFromClick(event, selectedOptions, permissionStateBefore) {
+    const generatedAfterEnter = now() - lastTrustedEnterAt <= 750;
+    const inFlight = active && ["request-entered", "request-issued", "waiting"].includes(active.state);
+    if (generatedAfterEnter || inFlight) {
+      const reason = generatedAfterEnter ? "trusted-enter-token" : "request-in-flight";
+      log("request-input-deduplicated", {
+        requestId: active?.requestId || null,
+        reason,
+        inputEventType: event?.type || "click",
+        inputEventIsTrusted: Boolean(event?.isTrusted)
+      });
+      return { accepted: false, reason, snapshot: snapshot() };
+    }
+    return { accepted: true, snapshot: start({
+      triggerSource: "click",
+      inputEventType: event?.type || "click",
+      inputEventKey: event?.key ?? null,
+      inputEventIsTrusted: Boolean(event?.isTrusted),
+      userActivation: event?.userActivation || userActivationSnapshot()
+    }, selectedOptions, permissionStateBefore) };
+  }
+
+  return {
+    requestFromTrustedEnter,
+    requestFromClick,
+    snapshot,
+    cancel() {
+      if (!active || !["request-entered", "request-issued", "waiting"].includes(active.state)) return false;
+      finishWatchdog();
+      transition("cancelled");
+      return true;
+    },
+    isInFlight: () => Boolean(active && ["request-entered", "request-issued", "waiting"].includes(active.state))
+  };
+}
 
 export const DEFAULT_LOCATION_THRESHOLDS = {
   poorAccuracyM: 50,
@@ -13,6 +280,32 @@ export const DEFAULT_LOCATION_THRESHOLDS = {
   duplicateToleranceM: 0.5,
   longCallbackGapMs: 10000
 };
+
+export function locationPresetOptions(name) {
+  if (!Object.hasOwn(LOCATION_PRESETS, name)) throw new TypeError(`Unknown location preset: ${name}`);
+  return { ...LOCATION_PRESETS[name] };
+}
+
+export function createFinitePager(pageKeys, initialIndex = 0) {
+  let index = Math.max(0, Math.min(pageKeys.length - 1, initialIndex));
+  const snapshot = () => ({
+    index,
+    page: pageKeys[index],
+    pageNumber: index + 1,
+    pageCount: pageKeys.length,
+    canPrevious: index > 0,
+    canNext: index < pageKeys.length - 1
+  });
+  return {
+    snapshot,
+    previous() { index = Math.max(0, index - 1); return snapshot(); },
+    next() { index = Math.min(pageKeys.length - 1, index + 1); return snapshot(); }
+  };
+}
+
+export function boundedDiagnosticEvents(entries, entry, limit = 5) {
+  return [...entries, entry].slice(-Math.max(1, limit));
+}
 
 export function haversineMeters(a, b) {
   if (!a || !b) return 0;
@@ -127,10 +420,13 @@ export function createLocationAccumulator({
 
 export function createLocationProbe({
   geolocation = globalThis.navigator?.geolocation,
+  permissions = globalThis.navigator?.permissions,
   logger,
   runtimeContext,
   onUpdate = () => {},
-  thresholds = DEFAULT_LOCATION_THRESHOLDS
+  onRequestTransition = () => {},
+  thresholds = DEFAULT_LOCATION_THRESHOLDS,
+  requestMachineOptions = {}
 }) {
   const accumulator = createLocationAccumulator({ thresholds });
   let watchId = null;
@@ -163,13 +459,30 @@ export function createLocationProbe({
   const requireApi = () => {
     if (!geolocation) throw Object.assign(new Error("Geolocation API missing"), { name: "MissingAPIError" });
   };
+  const requestMachine = createGeolocationRequestMachine({
+    geolocation,
+    permissions,
+    logger,
+    onTransition: onRequestTransition,
+    onSuccess: success,
+    onError: failure,
+    ...requestMachineOptions
+  });
 
   return {
     setOptions(next) { options = { ...next }; return options; },
     getOne() {
-      try { requireApi(); geolocation.getCurrentPosition(success, failure, options); logger.log("location", "get-one-requested", { options }); }
-      catch (error) { failure(error); }
+      return requestMachine.requestFromClick({ type: "click", isTrusted: false }, options, "unavailable");
     },
+    requestOneFromTrustedEnter(event, permissionStateBefore = "unavailable") {
+      return requestMachine.requestFromTrustedEnter(event, options, permissionStateBefore);
+    },
+    requestOneFromClick(event, permissionStateBefore = "unavailable") {
+      return requestMachine.requestFromClick(event, options, permissionStateBefore);
+    },
+    requestSnapshot: () => requestMachine.snapshot(),
+    cancelRequest: () => requestMachine.cancel(),
+    refreshPermission: () => queryGeolocationPermission(permissions),
     startWatch() {
       if (watchId !== null) return false;
       try {

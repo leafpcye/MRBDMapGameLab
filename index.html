@@ -152,8 +152,15 @@
 
       <section class="page" data-page="network" aria-labelledby="network-title">
         <div class="section-heading"><p class="kicker">05 / CONNECTIVITY</p><h2 id="network-title">Network</h2><p id="network-probe-status">navigator.onLine is not proof of internet access.</p></div>
-        <label class="toggle-line"><input id="bypass-cache" type="checkbox"> Bypass cache</label>
-        <div class="actions"><button id="run-network">Run Same-Origin Fetch</button><button data-clear="network">Clear Module Log</button><button data-back>Back</button></div>
+        <dl class="live-readout network-readout">
+          <div><dt>RUNTIME navigator.onLine</dt><dd id="network-runtime-state">—</dd></div>
+          <div><dt>SAME-ORIGIN LIVE FETCH</dt><dd id="network-live-fetch">Not tested</dd></div>
+          <div><dt>LIKELY CACHED PAGE</dt><dd id="network-cached-page">Unknown</dd></div>
+          <div><dt>LAST FETCH STATUS</dt><dd id="network-last-status">Not tested</dd></div>
+          <div><dt>LAST SUCCESS</dt><dd id="network-last-success">None</dd></div>
+          <div><dt>LAST ERROR</dt><dd id="network-last-error">None</dd></div>
+        </dl>
+        <div class="actions"><button id="run-network">Run Same-Origin Live Fetch</button><button data-clear="network">Clear Module Log</button><button data-back>Back</button></div>
         <div id="network-output" class="results" aria-live="polite"></div>
         <div data-recent="network" class="recent"></div>
       </section>
@@ -167,27 +174,76 @@
       </section>
 
       <section class="page" data-page="location" aria-labelledby="location-title">
-        <div class="section-heading"><p class="kicker">07 / FOREGROUND</p><h2 id="location-title">Location</h2><p id="location-status">Manual probe · API presence is not proof of operation</p></div>
-        <dl class="live-readout">
-          <div><dt>API</dt><dd id="location-api">—</dd></div><div><dt>PERMISSION</dt><dd id="location-permission">Unknown</dd></div>
-          <div><dt>WATCH</dt><dd id="location-watch">Stopped</dd></div><div><dt>SAMPLES</dt><dd id="location-count">0</dd></div>
-        </dl>
-        <fieldset class="probe-options"><legend>Position Options · diagnostic defaults, not validated production thresholds</legend>
-          <label>Preset <select id="location-preset"><option value="high-accuracy">High Accuracy</option><option value="balanced">Balanced</option><option value="cached-quick">Cached Quick</option></select></label>
-          <label>Poor accuracy m <input id="threshold-accuracy" type="number" value="50" min="0"></label>
-          <label>Suspicious jump m <input id="threshold-jump" type="number" value="100" min="0"></label>
-          <label>Suspicious derived speed m/s <input id="threshold-speed" type="number" value="15" min="0"></label>
-          <label>Duplicate tolerance m <input id="threshold-duplicate" type="number" value="0.5" min="0" step="0.1"></label>
-          <label>Long callback gap ms <input id="threshold-gap" type="number" value="10000" min="0"></label>
-        </fieldset>
-        <div id="location-options-output" class="results"></div>
-        <div class="actions"><button id="location-one">Get One Position</button><button id="location-start">Start Watch</button><button id="location-stop">Stop Watch</button><button id="location-clear">Clear Location Session</button></div>
-        <label class="value-field">Marker note <input id="location-marker-note" maxlength="120" placeholder="Start outdoor walk"></label>
-        <div class="actions"><button id="location-marker">Add Marker</button><button id="location-export">Export Location JSON</button><button data-back>Back to Home</button></div>
-        <div class="pager"><button id="location-previous">Previous</button><strong id="location-page-title">Current · 1/2</strong><button id="location-next">Next</button></div>
-        <div id="location-current" class="results probe-page"></div>
-        <div id="location-summary" class="results probe-page" hidden></div>
-        <div data-recent="location" class="recent fixed-recent"></div>
+        <div class="section-heading instrument-heading"><p class="kicker">07 / FOREGROUND</p><h2 id="location-title">Location</h2></div>
+        <div class="instrument-status">
+          <strong id="location-page-label">Location — 1/5</strong>
+          <span>Request <b id="location-request-state">idle</b></span>
+          <span>Watch <b id="location-watch">Stopped</b></span>
+          <span>Age <b id="location-callback-age">—</b></span>
+        </div>
+        <div class="pager instrument-nav" aria-label="Location instrument pages">
+          <button id="location-previous">Previous Page</button>
+          <button id="location-next">Next Page</button>
+          <button data-back>Home</button>
+        </div>
+
+        <div class="instrument-body">
+          <section class="location-instrument-page" data-location-page="request">
+            <h3>Request</h3>
+            <p id="location-status">Manual probe · API presence is not proof of operation</p>
+            <div class="actions primary-actions"><button id="location-quick">MRBD Geolocation Quick Test</button><button id="location-one">Get One Position</button></div>
+            <div id="location-quick-result" class="quick-result" aria-live="polite"></div>
+            <fieldset class="mode-selector preset-selector"><legend>Preset — buttons, no native popup</legend>
+              <button data-location-preset="high-accuracy" aria-pressed="true">High Accuracy</button>
+              <button data-location-preset="balanced" aria-pressed="false">Balanced</button>
+              <button data-location-preset="cached-quick" aria-pressed="false">Cached Quick</button>
+            </fieldset>
+            <div id="location-options-output" class="results compact-results"></div>
+            <div class="actions"><button id="refresh-location-permission">Refresh Permission State</button></div>
+            <p id="location-permission-note" class="warning">Permission state has not been queried.</p>
+            <dl class="live-readout request-trace">
+              <div><dt>LAST INPUT</dt><dd id="geo-last-input">None</dd></div>
+              <div><dt>LAST TRUSTED INPUT</dt><dd id="geo-last-trusted-input">None</dd></div>
+              <div><dt>LAST ACTIVATION</dt><dd id="geo-last-activation">None</dd></div>
+              <div><dt>HANDLER ENTERED</dt><dd id="geo-handler-entered">No</dd></div>
+              <div><dt>CALL ISSUED</dt><dd id="geo-call-issued">No</dd></div>
+            </dl>
+            <div id="location-request-output" class="results compact-results"></div>
+          </section>
+
+          <section class="location-instrument-page" data-location-page="current" hidden>
+            <h3>Current Position</h3>
+            <div id="location-position-summary" class="results"></div>
+            <button id="location-details-toggle" aria-expanded="false">Show Coordinate Details</button>
+            <div id="location-current" class="results fixed-detail" hidden></div>
+          </section>
+
+          <section class="location-instrument-page" data-location-page="stats" hidden>
+            <h3>Session Stats</h3>
+            <div class="actions"><button id="location-start">Start Watch</button><button id="location-stop">Stop Watch</button><button id="location-clear">Clear Location Session</button></div>
+            <div id="location-summary" class="results"></div>
+          </section>
+
+          <section class="location-instrument-page" data-location-page="quality" hidden>
+            <h3>Quality</h3>
+            <p class="warning">Diagnostic defaults — not validated production thresholds.</p>
+            <fieldset class="probe-options">
+              <label>Poor accuracy m <input id="threshold-accuracy" type="number" value="50" min="0"></label>
+              <label>Suspicious jump m <input id="threshold-jump" type="number" value="100" min="0"></label>
+              <label>Derived speed m/s <input id="threshold-speed" type="number" value="15" min="0"></label>
+              <label>Duplicate tolerance m <input id="threshold-duplicate" type="number" value="0.5" min="0" step="0.1"></label>
+              <label>Long gap ms <input id="threshold-gap" type="number" value="10000" min="0"></label>
+            </fieldset>
+            <div id="location-quality-output" class="results"></div>
+          </section>
+
+          <section class="location-instrument-page" data-location-page="events" hidden>
+            <h3>Recent Events</h3>
+            <label class="value-field">Marker note <input id="location-marker-note" maxlength="120" placeholder="Start outdoor walk"></label>
+            <div class="actions"><button id="location-marker">Add Marker</button><button id="location-export">Export Location JSON</button></div>
+            <div data-recent="location" class="recent fixed-recent"></div>
+          </section>
+        </div>
       </section>
 
       <section class="page" data-page="motion" aria-labelledby="motion-title">
@@ -198,7 +254,15 @@
         </dl>
         <div class="actions"><button id="motion-permission">Request Sensor Permission</button><button id="orientation-start">Start Orientation</button><button id="orientation-stop">Stop Orientation</button><button id="motion-start">Start Motion</button><button id="motion-stop">Stop Motion</button><button id="both-start">Start Both</button><button id="both-stop">Stop All</button></div>
         <fieldset class="mode-selector"><legend>UI / log sampling (not sensor frequency)</legend><button data-sampling-hz="5">5 Hz</button><button data-sampling-hz="10" aria-pressed="true">10 Hz</button><button data-sampling-hz="20">20 Hz</button></fieldset>
-        <label class="value-field">Marker preset <select id="motion-marker-preset"><option>Baseline — both still</option><option>Move head only</option><option>Move phone only</option><option>Turn body with phone in pocket</option><option>Walk straight</option><option>Rotate head left/right</option><option>Nod head up/down</option></select></label>
+        <fieldset class="mode-selector marker-selector"><legend>Marker preset — buttons</legend>
+          <button data-motion-marker-preset="Baseline — both still" aria-pressed="true">Baseline — both still</button>
+          <button data-motion-marker-preset="Move head only">Move head only</button>
+          <button data-motion-marker-preset="Move phone only">Move phone only</button>
+          <button data-motion-marker-preset="Turn body with phone in pocket">Body + phone pocket</button>
+          <button data-motion-marker-preset="Walk straight">Walk straight</button>
+          <button data-motion-marker-preset="Rotate head left/right">Rotate head</button>
+          <button data-motion-marker-preset="Nod head up/down">Nod head</button>
+        </fieldset>
         <label class="value-field">Marker note <input id="motion-marker-note" maxlength="120" placeholder="Optional observation"></label>
         <div class="actions"><button id="motion-marker">Add Marker</button><button id="motion-clear">Clear Sensor Session</button><button id="motion-export">Export Sensor JSON</button><button data-back>Back to Home</button></div>
         <div class="pager"><button id="motion-previous">Previous</button><strong id="motion-page-title">Orientation · 1/2</strong><button id="motion-next">Next</button></div>

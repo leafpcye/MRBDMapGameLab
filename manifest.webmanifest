@@ -1,7 +1,7 @@
 {
   "name": "MRBD Capability Probe",
   "short_name": "MRBD Probe",
-  "description": "Phase 1A runtime diagnostics and Phase 1B foreground Location and IMU evidence probe.",
+  "description": "Phase 1A diagnostics and Phase 1B.1 trusted foreground Location and IMU evidence probe.",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",

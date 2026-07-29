@@ -1,6 +1,6 @@
 # MRBD Capability Probe
 
-A minimal, repeatable evidence harness for Meta Ray-Ban Display (MRBD) web-runtime investigation. Current Probe version: **0.2.0**. It retains the Phase 1A runtime, input, storage, lifecycle, network, and export probes and adds **Phase 1B foreground-only Location and Motion/Orientation probes**.
+A minimal, repeatable evidence harness for Meta Ray-Ban Display (MRBD) web-runtime investigation. Current Probe version: **0.2.1**. It retains the Phase 1A runtime, input, storage, lifecycle, network, and export probes and adds **Phase 1B foreground-only Location and Motion/Orientation probes**.
 
 This repository does **not** contain background tracking, Audio, speech, AI, maps, routes, POI, game content, accounts, a backend, remote logging, or a native companion. Phase 1B Audio and all later phases are not implemented.
 
@@ -15,6 +15,8 @@ Phase 1A.1 adds an automatically selected, persistent Large Text mode; paged Env
 Phase 1A.2 corrected responsive focus navigation and lifecycle identity diagnostics. The third device session confirmed the Neural Band mappings, `event.key` evidence, single-column routing, and a new document boot after leaving to app home and reopening. See [the recorded session](docs/results/phase-1a-2-third-device-session.md); it does not isolate middle pinch as the cause of the new boot.
 
 Phase 1B adds manual foreground Location, DeviceMotion, DeviceOrientation, and a combined timeline. It preserves raw measurements, applies editable diagnostic flags without discarding samples, limits UI/log rendering by a selectable sampler, and exports probe-filtered JSON. Object presence and desktop simulation are not MRBD capability results.
+
+Phase 1B.1 addresses an inconclusive MRBD Geolocation attempt. A trusted `Enter` keydown now calls `getCurrentPosition()` directly in the same event stack, while native click remains a separate direct path. Every one-shot request has an ID, explicit state transitions, permission-before/after evidence, activation fields, and a diagnostic watchdog distinct from the standard Geolocation timeout. Location is a five-page instrument panel and no core Phase 1B control uses a native `<select>` popup. Network now reports `navigator.onLine` separately from a timestamped, same-origin `no-store` fetch.
 
 ## Local development
 
@@ -92,4 +94,4 @@ Every structured export includes an Environment snapshot, build version, Git com
 
 Desktop Chrome/Safari and iPhone Safari results are prechecks only. They must never be reported as MRBD Runtime or Neural Band results. User-run findings are recorded separately for the [first session](docs/results/phase-1a-first-device-session-template.md) and [second session](docs/results/phase-1a-1-second-device-session.md). Follow the short [Phase 1A.2 retest](docs/mrbd-phase-1a-2-retest.md) on real hardware and preserve the exported logs.
 
-The next action is the 15–20 minute [Phase 1B foreground real-device test](docs/mrbd-phase-1b-foreground-test.md). Desktop checks do not establish Location or IMU behavior on MRBD.
+The next action is the 2–3 minute [Phase 1B.1 Geolocation retest](docs/mrbd-phase-1b-1-geolocation-retest.md). The current MRBD Geolocation conclusion is **inconclusive**; desktop checks do not establish Location capability on MRBD.

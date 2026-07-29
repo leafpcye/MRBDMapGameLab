@@ -123,6 +123,31 @@ footer { display: flex; justify-content: space-between; gap: 12px; border-top: 1
 .probe-options input, .probe-options select { width: 100%; }
 .fixed-recent { max-height: 150px; overflow: auto; }
 .probe-page[hidden] { display: none; }
+.instrument-heading { margin-bottom: 8px; }
+.instrument-status {
+  display: grid; grid-template-columns: 1.4fr repeat(3, 1fr); gap: 7px;
+  padding: 9px 0; border-block: 1px solid var(--line); font: .72rem/1.3 ui-monospace, monospace;
+}
+.instrument-status strong { color: var(--accent); }
+.instrument-status span { color: var(--muted); }
+.instrument-status b { display: block; color: var(--text); overflow-wrap: anywhere; }
+.instrument-nav { margin: 8px 0; grid-template-columns: repeat(3, 1fr); }
+.instrument-nav button { text-align: center; }
+.instrument-body {
+  height: min(520px, calc(100svh - 250px)); min-height: 300px; overflow-y: auto;
+  overscroll-behavior: contain; border-block: 1px solid var(--line); padding: 10px 2px;
+}
+.location-instrument-page[hidden] { display: none; }
+.location-instrument-page h3 { margin: 0 0 10px; color: var(--accent); }
+.quick-result { border-left: 4px solid var(--accent); background: #10251d; padding: 10px; }
+.quick-result dl { display: grid; grid-template-columns: minmax(90px, .6fr) 1.4fr; gap: 5px 9px; margin: 0; }
+.quick-result dd { font-size: .74rem; }
+.primary-actions button:first-child { background: var(--accent); color: var(--bg); font-weight: 800; }
+.compact-results { max-height: 180px; }
+.fixed-detail { max-height: 260px; }
+.preset-selector button { flex: 1 1 30%; }
+.marker-selector button { flex: 1 1 42%; }
+.network-readout { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 
 body.large-text { font-size: 26px; }
 body.large-text .shell { width: min(100%, 800px); padding: 18px; gap: 20px; }
@@ -172,6 +197,13 @@ body.large-text .input-lab { grid-template-columns: 1fr; }
 body.large-text .horizontal, body.large-text .long-list { grid-column: auto; }
 body.large-text .horizontal button { width: calc(33.33% - 5px); font-size: 23px; padding-inline: 8px; }
 body.large-text .probe-options { grid-template-columns: 1fr; }
+body.large-text .instrument-status { grid-template-columns: repeat(2, minmax(0, 1fr)); font-size: 18px; }
+body.large-text .instrument-status strong { grid-column: 1 / -1; }
+body.large-text .instrument-body { height: min(560px, calc(100svh - 320px)); min-height: 280px; }
+body.large-text .preset-selector button, body.large-text .marker-selector button { flex-basis: 100%; }
+body.large-text .quick-result dl { grid-template-columns: minmax(130px, .6fr) 1.4fr; }
+body.large-text .quick-result dt { font-size: 17px; }
+body.large-text .quick-result dd { font-size: 20px; }
 @media (max-width: 600px) {
   .shell { min-height: 600px; padding: 14px; }
   .status-bar { display: grid; grid-template-columns: 1fr; }
@@ -179,4 +211,7 @@ body.large-text .probe-options { grid-template-columns: 1fr; }
   .build-strip dt { font-size: .52rem; }.build-strip dd { font-size: .65rem; }
   .input-lab { grid-template-columns: 1fr; }.horizontal, .long-list { grid-column: auto; }
   .probe-options { grid-template-columns: 1fr; }
+  .instrument-status { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .instrument-status strong { grid-column: 1 / -1; }
+  .instrument-body { height: 350px; }
 }
