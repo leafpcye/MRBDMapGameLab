@@ -82,3 +82,43 @@ export function environmentRows(snapshot) {
     ...Object.entries(snapshot.apiPresence)
   ];
 }
+
+export function environmentPages(snapshot, pageSize = 7) {
+  const { runtime, apiPresence } = snapshot;
+  const summary = [
+    ["User Agent", shortenUserAgent(runtime.userAgent)],
+    ["Platform", runtime.platform],
+    ["Secure context", String(runtime.isSecureContext)],
+    ["Viewport", `${runtime.viewport.width} × ${runtime.viewport.height}`],
+    ["Device pixel ratio", String(runtime.devicePixelRatio)],
+    ["Online signal", String(runtime.onLine)],
+    ["Service Worker", apiPresence["navigator.serviceWorker"]],
+    ["localStorage", apiPresence.localStorage],
+    ["IndexedDB", apiPresence.indexedDB],
+    ["Geolocation", apiPresence["navigator.geolocation"]],
+    ["DeviceOrientation", apiPresence.DeviceOrientationEvent],
+    ["mediaDevices", apiPresence["navigator.mediaDevices"]]
+  ];
+  const runtimeDetails = environmentRows(snapshot).slice(0, 16);
+  return [
+    ...chunkRows(summary, 6, "Summary"),
+    ...chunkRows(Object.entries(apiPresence), pageSize, "API Matrix"),
+    ...chunkRows(runtimeDetails, pageSize, "Runtime Details")
+  ];
+}
+
+function chunkRows(rows, size, title) {
+  const chunks = [];
+  for (let index = 0; index < rows.length; index += size) {
+    chunks.push({
+      title: `${title} ${Math.floor(index / size) + 1}/${Math.ceil(rows.length / size)}`,
+      rows: rows.slice(index, index + size)
+    });
+  }
+  return chunks;
+}
+
+function shortenUserAgent(userAgent) {
+  if (userAgent.length <= 90) return userAgent;
+  return `${userAgent.slice(0, 87)}…`;
+}

@@ -32,6 +32,7 @@ test("launch count preserves first launch and updates last launch", () => {
   assert.equal(first.launchCount, 1);
   assert.equal(second.launchCount, 2);
   assert.equal(second.firstLaunchAt, first.firstLaunchAt);
+  assert.equal(second.previousLaunchAt, first.lastLaunchAt);
   assert.equal(second.lastLaunchAt, "2026-07-28T01:00:00.000Z");
 });
 

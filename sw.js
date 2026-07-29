@@ -19,7 +19,11 @@ const APP_SHELL = [
   appUrl("modules/lifecycle.js"),
   appUrl("modules/network.js"),
   appUrl("modules/export.js"),
-  appUrl("modules/ui.js")
+  appUrl("modules/ui.js"),
+  appUrl("modules/preferences.js"),
+  appUrl("modules/navigation.js"),
+  appUrl("modules/input-state.js"),
+  appUrl("modules/lifecycle-checkpoint.js")
 ];
 
 self.addEventListener("install", (event) => {

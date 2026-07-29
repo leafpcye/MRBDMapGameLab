@@ -18,6 +18,7 @@ button {
   color: var(--text); background: var(--surface); text-align: left; cursor: pointer;
 }
 button:hover { border-color: var(--muted); }
+button:disabled { cursor: not-allowed; opacity: .45; }
 button:focus-visible, input:focus-visible, textarea:focus-visible {
   outline: 3px solid var(--accent); outline-offset: 3px; border-color: transparent;
 }
@@ -25,6 +26,7 @@ button:active { transform: translateY(1px); }
 button[aria-pressed="true"] { color: var(--bg); background: var(--accent); border-color: var(--accent); }
 .shell { width: min(100%, 760px); min-height: 100svh; padding: 18px; display: grid; grid-template-rows: auto 1fr auto; gap: 16px; }
 .status-bar { border-bottom: 1px solid var(--line); padding-bottom: 12px; }
+.display-toggle { margin-top: 12px; width: 100%; text-align: center; }
 .eyebrow, .kicker { color: var(--accent); letter-spacing: .13em; font-size: .72rem; font-weight: 800; margin: 0 0 4px; }
 h1 { font-size: 1.35rem; margin: 0; letter-spacing: -.03em; }
 h2 { font-size: clamp(2rem, 8vw, 3.2rem); line-height: .95; letter-spacing: -.055em; margin: 6px 0 8px; }
@@ -53,6 +55,31 @@ dd { margin: 3px 0 0; font: 700 .78rem ui-monospace, SFMono-Regular, Menlo, mono
 .recent ol { margin: 0; padding-left: 1.7rem; font: .74rem/1.55 ui-monospace, monospace; color: var(--muted); }
 .recent strong { color: var(--text); }
 .live-readout { background: var(--surface); padding: 12px; }
+.last-event-readout, .storage-summary, .diagnostic-grid {
+  display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px;
+  background: var(--surface); padding: 12px; margin: 12px 0;
+}
+.last-event-readout div:first-child, .last-event-readout div:last-child { grid-column: 1 / -1; }
+.last-event-readout dd { color: var(--accent); font-size: 1.28rem; }
+.mode-selector { display: flex; flex-wrap: wrap; gap: 8px; }
+.mode-selector button { flex: 1 1 150px; text-align: center; }
+.mode-help { color: var(--muted); line-height: 1.45; }
+.pair-panel, .input-events-panel, .diagnostic-panel { border-top: 1px solid var(--line); margin-top: 14px; padding-top: 12px; }
+.pair-panel h3, .input-events-panel h3, .diagnostic-panel h3 { margin: 0 0 10px; }
+#pair-summary { display: grid; gap: 5px; }
+.pair-row, .input-event-row {
+  display: grid; align-items: center; gap: 8px; border-bottom: 1px solid var(--line); padding: 8px 0;
+}
+.pair-row { grid-template-columns: minmax(110px, 1fr) auto auto; }
+.pair-row span:not(:first-child) { font-family: ui-monospace, monospace; }
+.input-event-row { grid-template-columns: auto 1fr; }
+.input-event-row strong { color: var(--accent); }
+.input-event-row small { grid-column: 1 / -1; color: var(--muted); font: .72rem/1.4 ui-monospace, monospace; }
+.pager { display: grid; grid-template-columns: 1fr auto 1fr; gap: 8px; align-items: center; margin: 12px 0; }
+.pager strong { text-align: center; }
+.pager button:last-child { text-align: right; }
+.evidence-label { color: var(--accent); font-size: .72rem; letter-spacing: .1em; text-transform: uppercase; }
+.interpretation { font-size: 1.2rem; font-weight: 750; line-height: 1.25; }
 .value-field, .toggle-line { display: block; color: var(--muted); margin: 12px 0; }
 input, textarea { color: var(--text); background: #020403; border: 1px solid var(--line); border-radius: 3px; padding: .7rem; }
 .value-field input { display: block; width: 100%; margin-top: 6px; }
@@ -67,6 +94,47 @@ fieldset button { width: 100%; margin: 3px 0; }
 .warning { color: var(--danger); }
 textarea { width: 100%; resize: vertical; font: .72rem/1.45 ui-monospace, monospace; }
 footer { display: flex; justify-content: space-between; gap: 12px; border-top: 1px solid var(--line); padding-top: 10px; color: var(--muted); font-size: .65rem; letter-spacing: .07em; }
+
+body.large-text { font-size: 26px; }
+body.large-text .shell { width: min(100%, 800px); padding: 18px; gap: 20px; }
+body.large-text .eyebrow, body.large-text .kicker { font-size: 18px; }
+body.large-text h1 { font-size: 34px; }
+body.large-text h2 { font-size: 40px; line-height: 1.02; }
+body.large-text h3 { font-size: 28px; }
+body.large-text .section-heading > p:last-child,
+body.large-text .mode-help,
+body.large-text .warning { font-size: 24px; }
+body.large-text button { min-height: 68px; padding: 14px 16px; font-size: 27px; line-height: 1.15; }
+body.large-text input, body.large-text textarea { font-size: 26px; padding: 14px; }
+body.large-text dt { font-size: 18px; }
+body.large-text dd { font-size: 24px; line-height: 1.25; }
+body.large-text .build-strip { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+body.large-text .build-strip div:last-child { grid-column: 1 / -1; }
+body.large-text .probe-menu { grid-template-columns: 1fr; }
+body.large-text .probe-menu button { min-height: 94px; font-size: 30px; border-right: 0; }
+body.large-text .probe-menu small { font-size: 22px; margin-left: 38px; }
+body.large-text .probe-menu button span { font-size: 20px; }
+body.large-text .last-event-readout,
+body.large-text .storage-summary,
+body.large-text .diagnostic-grid,
+body.large-text .live-readout { grid-template-columns: 1fr; gap: 14px; padding: 16px; }
+body.large-text .last-event-readout div { grid-column: auto; }
+body.large-text .last-event-readout dd { font-size: 42px; overflow-wrap: anywhere; }
+body.large-text .results { max-height: none; }
+body.large-text .results dl { grid-template-columns: 1fr; gap: 5px; }
+body.large-text .results dt { margin-top: 12px; }
+body.large-text .results dd { font-size: 26px; }
+body.large-text .recent { display: none; }
+body.large-text .pair-row { grid-template-columns: 1fr auto auto; font-size: 24px; }
+body.large-text .input-event-row { font-size: 25px; }
+body.large-text .input-event-row small { font-size: 20px; }
+body.large-text .interpretation { font-size: 32px; }
+body.large-text .evidence-label { font-size: 18px; }
+body.large-text footer { font-size: 18px; flex-direction: column; }
+body.large-text legend { font-size: 20px; }
+body.large-text .input-lab { grid-template-columns: 1fr; }
+body.large-text .horizontal, body.large-text .long-list { grid-column: auto; }
+body.large-text .horizontal button { width: 100%; }
 @media (max-width: 600px) {
   .shell { min-height: 600px; padding: 14px; }
   .status-bar { display: grid; grid-template-columns: 1fr; }

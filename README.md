@@ -1,6 +1,6 @@
 # MRBD Capability Probe
 
-A minimal, repeatable evidence harness for **Phase 1A** of Meta Ray-Ban Display (MRBD) web-runtime investigation. It records runtime/API presence, raw input events, storage operations, page lifecycle, same-origin network behavior, and log-export attempts.
+A minimal, repeatable evidence harness for **Phase 1A.1** of Meta Ray-Ban Display (MRBD) web-runtime investigation. Current Probe version: **0.1.1**. It records runtime/API presence, raw input events, storage operations, page lifecycle, same-origin network behavior, and log-export attempts.
 
 This repository does **not** contain Location, Motion/Orientation, Audio, speech, AI, maps, routes, game content, accounts, a backend, remote logging, or a native companion. Phase 1B and Phase 1C are not implemented.
 
@@ -8,7 +8,9 @@ Repository: [leafpcye/MRBDMapGameLab](https://github.com/leafpcye/MRBDMapGameLab
 
 Verified Phase 1A URL: [https://leafpcye.github.io/MRBDMapGameLab/](https://leafpcye.github.io/MRBDMapGameLab/)
 
-Public static deployment was verified on **2026-07-29**: the page and required resources returned the deployed `0.1.0` build at commit `f241cb0`. “Verified” here means only that the GitHub Pages artifact is publicly accessible. It does not establish MRBD Runtime compatibility, Neural Band input behavior, storage persistence, lifecycle behavior, or offline capability.
+Public static deployment was verified on **2026-07-29**: the page and required resources returned the deployed `0.1.0` build at commit `f241cb0`. A subsequent user-run MRBD session confirmed that this URL opens on the device, all six entries are visible, four directional actions and index pinch are observed as Arrow/Enter mappings, keydown/keyup and some click events occur, and localStorage survives a normal close/reopen. The exact per-event `key`/`code` evidence, middle-pinch lifecycle mechanism, complete restart persistence, API operations, and offline cold-start remain unverified.
+
+Phase 1A.1 adds an automatically selected, persistent Large Text mode; paged Environment evidence; prominent raw Input fields and key-pair summaries; separate observation/browser/app-navigation modes; a compact lifecycle checkpoint; and a Storage quick summary. These changes require a second MRBD session and must not be treated as validated merely because desktop tests pass.
 
 ## Local development
 
@@ -64,7 +66,7 @@ See [docs/deployment.md](docs/deployment.md) for activation, verification, rollb
 - `scripts/generate-build-info.mjs`: reproducible build identity.
 - `scripts/build-site.mjs`: dependency-free `dist/` builder.
 - `.github/workflows/deploy-pages.yml`: official GitHub Pages artifact deployment.
-- `tests/`: Node built-in tests for Logger and injected storage adapters.
+- `tests/`: Node built-in tests for Logger, injected storage adapters, display preference, navigation, input pairing, and lifecycle checkpoint logic.
 - `docs/`: capability matrix, test catalog, and real-device procedure.
 - `docs/results/`: user-provided evidence outputs; no fabricated results.
 
@@ -84,6 +86,6 @@ Every structured export includes an Environment snapshot, build version, Git com
 
 ## Evidence boundary
 
-Desktop Chrome/Safari and iPhone Safari results are prechecks only. They must never be reported as MRBD Runtime or Neural Band results. Follow [docs/mrbd-phase-1a-test-plan.md](docs/mrbd-phase-1a-test-plan.md) on real hardware and preserve the exported logs.
+Desktop Chrome/Safari and iPhone Safari results are prechecks only. They must never be reported as MRBD Runtime or Neural Band results. The first user-run device findings are recorded in [docs/results/phase-1a-first-device-session-template.md](docs/results/phase-1a-first-device-session-template.md). Follow the short [Phase 1A.1 retest](docs/mrbd-phase-1a-1-retest.md) on real hardware and preserve the exported logs.
 
-The next action is for the user to add the verified URL in Meta AI App and complete the 15–25 minute first-device session. Phase 1B remains out of scope until real-device evidence is returned.
+The next action is a 5–10 minute Phase 1A.1 MRBD retest. Phase 1B remains out of scope.

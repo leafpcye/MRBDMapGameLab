@@ -35,10 +35,11 @@ export function createStorageHelper(storage, prefix = "mrbdProbe.") {
       const parsed = Number.parseInt(rawCount ?? "0", 10);
       const launchCount = Number.isFinite(parsed) && parsed >= 0 ? parsed + 1 : 1;
       const firstLaunchAt = storage.getItem(key("firstLaunchAt")) || at;
+      const previousLaunchAt = storage.getItem(key("lastLaunchAt"));
       storage.setItem(key("launchCount"), String(launchCount));
       storage.setItem(key("firstLaunchAt"), firstLaunchAt);
       storage.setItem(key("lastLaunchAt"), at);
-      return { launchCount, firstLaunchAt, lastLaunchAt: at };
+      return { launchCount, firstLaunchAt, previousLaunchAt, lastLaunchAt: at };
     }
   };
 }

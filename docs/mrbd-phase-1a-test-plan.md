@@ -8,7 +8,7 @@ Verified Phase 1A URL:
 https://leafpcye.github.io/MRBDMapGameLab/
 ```
 
-The public static deployment was verified on **2026-07-29** at version `0.1.0`, commit `f241cb0`. This is not MRBD compatibility evidence. Do not guess device versions or expected Neural Band event names.
+The public static deployment was verified on **2026-07-29** at version `0.1.0`, commit `f241cb0`. The user subsequently completed an initial MRBD session; its facts are recorded in the result document. This longer plan is retained for coverage, while version `0.1.1` uses the focused [Phase 1A.1 retest](mrbd-phase-1a-1-retest.md). Do not guess device versions or unrecorded event fields.
 
 Use [results/phase-1a-first-device-session-template.md](results/phase-1a-first-device-session-template.md) while testing. Export after important steps when possible.
 
@@ -55,7 +55,7 @@ Repeat relevant actions on:
 - Horizontal Selector;
 - Long List.
 
-Record the actual event type, `key`, `code`, keydown/keyup presence, click, focus movement, system behavior, and the difference before/after enabling **Prevent navigation defaults**. Do not assume middle-finger pinch maps to Escape or that a missing keyup means a long press.
+Record the actual event type, `key`, `code`, keydown/keyup presence, click, focus movement, system behavior, and the difference between **Observe Only**, **Browser Default**, and **App Navigation**. Do not assume middle-finger pinch maps to Escape or that a missing keyup means a long press.
 
 Press **Stop** and preserve Input evidence.
 

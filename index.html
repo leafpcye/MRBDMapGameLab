@@ -23,6 +23,7 @@
         <div><dt>NETWORK</dt><dd id="network-status">—</dd></div>
         <div><dt>PAGE</dt><dd id="current-page">Home</dd></div>
       </dl>
+      <button id="large-text-toggle" class="display-toggle" aria-pressed="false">Large Text: Off</button>
     </header>
 
     <main id="main" tabindex="-1">
@@ -44,18 +45,30 @@
 
       <section class="page" data-page="environment" aria-labelledby="environment-title">
         <div class="section-heading"><p class="kicker">01 / RUNTIME</p><h2 id="environment-title">Environment</h2><p id="environment-status">Not yet probed</p></div>
-        <div class="actions"><button id="run-environment">Run Environment Probe</button><button id="copy-environment">Copy Environment Summary</button><button data-clear="environment">Clear Module Log</button><button data-back>Back</button></div>
+        <div class="actions"><button id="run-environment">Run Environment Probe</button><button id="copy-environment">Copy Environment Summary</button><button data-clear="environment">Clear Module Log</button></div>
+        <div class="pager" aria-label="Environment pages"><button id="environment-previous" disabled>Previous Page</button><strong id="environment-page-title">Run probe to view pages</strong><button id="environment-next" disabled>Next Page</button></div>
         <div id="environment-output" class="results" aria-live="polite"></div>
+        <div class="actions"><button data-back>Back</button></div>
         <div data-recent="environment" class="recent"></div>
       </section>
 
       <section class="page" data-page="input" aria-labelledby="input-title">
         <div class="section-heading"><p class="kicker">02 / RAW EVENTS</p><h2 id="input-title">Input</h2><p id="input-status">Stopped · no events observed</p></div>
-        <div class="actions"><button id="start-input">Start</button><button id="stop-input">Stop</button><button id="prevent-default" aria-pressed="false">Prevent navigation defaults: Off</button><button data-clear="input">Clear Module Log</button><button data-back>Back</button></div>
-        <dl class="live-readout">
-          <div><dt>FOCUS</dt><dd id="input-focus">none</dd></div><div><dt>SELECTED</dt><dd id="input-selection">none</dd></div>
-          <div><dt>EVENTS</dt><dd id="input-count">0</dd></div><div><dt>KEY PAIR</dt><dd id="input-pair">No matching keyup observed</dd></div>
+        <div class="actions"><button id="start-input">Start</button><button id="stop-input">Stop</button><button data-clear="input">Clear Module Log</button><button data-back>Back</button></div>
+        <fieldset class="mode-selector"><legend>Input Mode</legend><button data-input-mode="observe-only" aria-pressed="true">Observe Only</button><button data-input-mode="browser-default" aria-pressed="false">Browser Default</button><button data-input-mode="app-navigation" aria-pressed="false">App Navigation</button></fieldset>
+        <p id="input-mode-help" class="mode-help">Observe Only records raw runtime behavior without preventDefault or app focus routing.</p>
+        <dl class="last-event-readout">
+          <div><dt>LAST EVENT TYPE</dt><dd id="last-event-type">—</dd></div>
+          <div><dt>KEY</dt><dd id="last-event-key">—</dd></div>
+          <div><dt>CODE</dt><dd id="last-event-code">—</dd></div>
+          <div><dt>MATCHED PAIR</dt><dd id="input-pair">No matching keyup observed</dd></div>
+          <div><dt>FOCUSED ELEMENT</dt><dd id="input-focus">none</dd></div>
         </dl>
+        <dl class="live-readout">
+          <div><dt>SELECTED</dt><dd id="input-selection">none</dd></div><div><dt>EVENTS</dt><dd id="input-count">0</dd></div>
+        </dl>
+        <div class="pair-panel"><h3>Pair Summary</h3><div id="pair-summary"></div></div>
+        <div class="input-events-panel"><h3>Recent Raw Events</h3><div id="input-event-list"><p>No input events observed.</p></div></div>
         <div id="input-controls" class="input-lab">
           <fieldset><legend>A · Single Button</legend><button data-test-control="single">Activate test button</button></fieldset>
           <fieldset class="vertical"><legend>B · Vertical List</legend><button data-test-control="vertical-1">Option 1</button><button data-test-control="vertical-2">Option 2</button><button data-test-control="vertical-3">Option 3</button><button data-test-control="vertical-4">Option 4</button><button data-test-control="vertical-5">Option 5</button></fieldset>
@@ -67,6 +80,12 @@
 
       <section class="page" data-page="storage" aria-labelledby="storage-title">
         <div class="section-heading"><p class="kicker">03 / PERSISTENCE</p><h2 id="storage-title">Storage</h2><p id="storage-status">Ready for explicit tests</p></div>
+        <dl class="storage-summary">
+          <div><dt>LAUNCH COUNT</dt><dd id="storage-launch-count">—</dd></div>
+          <div><dt>CURRENT TEST VALUE</dt><dd id="storage-current-value">—</dd></div>
+          <div><dt>PREVIOUS LAUNCH</dt><dd id="storage-previous-launch">—</dd></div>
+          <div><dt>PAGE INSTANCE</dt><dd id="storage-page-instance">—</dd></div>
+        </dl>
         <label class="value-field">Test value <input id="storage-value" maxlength="120" value="phase-1a"></label>
         <div class="actions"><button id="test-local">Test localStorage</button><button id="test-session">Test sessionStorage</button><button id="test-idb">Test IndexedDB</button><button id="test-cache">Test Cache Storage</button><button id="register-sw">Register Service Worker</button><button id="update-sw">Check SW Update</button><button id="unregister-sw">Unregister SW</button><button data-clear="storage">Clear Module Log</button><button data-back>Back</button></div>
         <div id="storage-output" class="results" aria-live="polite"></div>
@@ -75,6 +94,13 @@
 
       <section class="page" data-page="lifecycle" aria-labelledby="lifecycle-title">
         <div class="section-heading"><p class="kicker">04 / PAGE STATE</p><h2 id="lifecycle-title">Lifecycle</h2><p id="lifecycle-status">Listeners active from script start</p></div>
+        <div class="diagnostic-panel">
+          <h3>System Menu / Resume Diagnostic</h3>
+          <p class="evidence-label">Evidence-based interpretation</p>
+          <p id="lifecycle-interpretation" class="interpretation">Unknown · more lifecycle evidence needed</p>
+          <dl id="lifecycle-diagnostic" class="diagnostic-grid"></dl>
+          <div class="actions"><button id="mark-middle-pinch">Mark Before Middle Pinch</button></div>
+        </div>
         <dl id="lifecycle-readout" class="live-readout"></dl>
         <label class="value-field">Marker note <input id="marker-note" maxlength="160" placeholder="Before glasses screen off"></label>
         <div class="actions"><button id="add-marker">Lifecycle Marker</button><button data-clear="lifecycle">Clear Module Log</button><button data-back>Back</button></div>
@@ -97,7 +123,7 @@
         <div data-recent="export" class="recent"></div>
       </section>
     </main>
-    <footer><span id="footer-count">0 log entries</span><span>MRBD RESULT: NOT TESTED</span></footer>
+    <footer><span id="footer-count">0 log entries</span><span>CURRENT SESSION: CAPTURE EVIDENCE</span></footer>
   </div>
   <script type="module" src="./app.js"></script>
 </body>

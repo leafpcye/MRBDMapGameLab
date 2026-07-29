@@ -34,7 +34,13 @@ export function installLifecycleProbe(logger, onUpdate = () => {}) {
       }
       if (event.type === "pageshow" && event.persisted) bfcacheEvidence = true;
       logger.log("lifecycle", event.type, payload);
-      onUpdate({ lastEvent: event.type, bfcacheEvidence });
+      onUpdate({
+        lastEvent: event.type,
+        bfcacheEvidence,
+        eventAt: new Date().toISOString(),
+        persisted: payload.persisted,
+        visibilityState: document.visibilityState
+      });
     } catch (error) {
       logger.log("lifecycle", "listener-error", { sourceEvent: event.type, ...errorDetails(error) });
     }

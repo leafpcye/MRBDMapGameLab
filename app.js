@@ -1,12 +1,14 @@
 import { BUILD_INFO } from "./build-info.js";
 import { createLogger } from "./modules/logger.js";
-import { collectEnvironment, environmentRows } from "./modules/environment.js";
+import { collectEnvironment, environmentPages } from "./modules/environment.js";
 import { createInputProbe } from "./modules/input.js";
 import { createStorageHelper, errorDetails } from "./modules/storage.js";
 import { installLifecycleProbe } from "./modules/lifecycle.js";
 import { runNetworkProbe } from "./modules/network.js";
 import { snapshotJSON, snapshotCSV, triggerDownload, copyText, shareJSON } from "./modules/export.js";
 import { renderRows, renderRecent, shortId } from "./modules/ui.js";
+import { readLargeTextPreference, shouldUseLargeText, writeLargeTextPreference } from "./modules/preferences.js";
+import { readLifecycleCheckpoint, writeLifecycleCheckpoint, interpretLifecycleEvidence } from "./modules/lifecycle-checkpoint.js";
 
 const id = (prefix) => `${prefix}-${globalThis.crypto?.randomUUID?.() || `${Date.now()}-${Math.random().toString(16).slice(2)}`}`;
 const pageInstanceId = id("page");
@@ -27,6 +29,20 @@ const logger = createLogger({
   environmentProvider: () => environmentSnapshot || collectEnvironment()
 });
 
+let browserLocalStorage = null;
+try {
+  browserLocalStorage = localStorage;
+} catch {
+  // Individual storage probes record access failures without blocking app startup.
+}
+const largeTextEnabled = shouldUseLargeText({
+  storedPreference: readLargeTextPreference(browserLocalStorage),
+  width: innerWidth,
+  height: innerHeight,
+  userAgent: navigator.userAgent
+});
+document.body.classList.toggle("large-text", largeTextEnabled);
+
 let launchState = { launchCount: "unavailable", firstLaunchAt: "unavailable", lastLaunchAt: "unavailable" };
 try {
   launchState = createStorageHelper(localStorage).recordLaunch();
@@ -35,9 +51,32 @@ try {
   logger.log("storage", "launch-record-failed", errorDetails(error));
 }
 
-const lifecycleState = { lastEvent: "script-start", bfcacheEvidence: false };
+const previousCheckpointResult = readLifecycleCheckpoint(browserLocalStorage);
+const previousCheckpoint = previousCheckpointResult.checkpoint;
+const pageStartedAt = new Date().toISOString();
+const lifecycleState = {
+  lastEvent: "script-start",
+  bfcacheEvidence: false,
+  lastPagehideAt: null,
+  lastPageshowAt: null,
+  lastVisibilityChangeAt: null,
+  pageshowPersisted: false,
+  visibilityRestored: false,
+  previousVisibility: document.visibilityState
+};
 const lifecycleProbe = installLifecycleProbe(logger, (update) => {
+  if (update.lastEvent === "pagehide") lifecycleState.lastPagehideAt = update.eventAt;
+  if (update.lastEvent === "pageshow") {
+    lifecycleState.lastPageshowAt = update.eventAt;
+    lifecycleState.pageshowPersisted = Boolean(update.persisted);
+  }
+  if (update.lastEvent === "visibilitychange") {
+    lifecycleState.lastVisibilityChangeAt = update.eventAt;
+    if (lifecycleState.previousVisibility === "hidden" && update.visibilityState === "visible") lifecycleState.visibilityRestored = true;
+    lifecycleState.previousVisibility = update.visibilityState;
+  }
   Object.assign(lifecycleState, update);
+  persistLifecycleCheckpoint(update.lastEvent);
   updateLifecycleReadout();
 });
 
@@ -47,6 +86,29 @@ $("#app-version").textContent = BUILD_INFO.version;
 $("#git-commit").textContent = BUILD_INFO.gitCommit;
 $("#session-short").textContent = shortId(sessionId);
 updateNetworkStatus();
+
+const largeTextToggle = $("#large-text-toggle");
+largeTextToggle.setAttribute("aria-pressed", String(largeTextEnabled));
+largeTextToggle.textContent = `Large Text: ${largeTextEnabled ? "On" : "Off"}`;
+largeTextToggle.addEventListener("click", () => {
+  const enabled = !document.body.classList.contains("large-text");
+  document.body.classList.toggle("large-text", enabled);
+  largeTextToggle.setAttribute("aria-pressed", String(enabled));
+  largeTextToggle.textContent = `Large Text: ${enabled ? "On" : "Off"}`;
+  try {
+    writeLargeTextPreference(browserLocalStorage, enabled);
+    logger.log("ui", "large-text-changed", { enabled, source: "manual" });
+  } catch (error) {
+    logger.log("ui", "large-text-save-failed", errorDetails(error));
+  }
+});
+logger.log("ui", "large-text-initialized", {
+  enabled: largeTextEnabled,
+  viewport: { width: innerWidth, height: innerHeight },
+  greatwhiteDetected: /Greatwhite/i.test(navigator.userAgent),
+  storedPreference: readLargeTextPreference(browserLocalStorage)
+});
+if (previousCheckpointResult.error) logger.log("lifecycle", "checkpoint-read-failed", previousCheckpointResult.error);
 
 function currentPage() {
   return $(".page.active")?.dataset.page || "home";
@@ -102,16 +164,39 @@ $$("[data-clear]").forEach((button) => button.addEventListener("click", () => {
   refreshRecent();
 }));
 
+let environmentPageList = [];
+let environmentPageIndex = 0;
+function renderEnvironmentPage() {
+  const page = environmentPageList[environmentPageIndex];
+  if (!page) return;
+  $("#environment-page-title").textContent = `${page.title} · ${environmentPageIndex + 1}/${environmentPageList.length}`;
+  renderRows($("#environment-output"), page.rows);
+  $("#environment-previous").disabled = environmentPageIndex === 0;
+  $("#environment-next").disabled = environmentPageIndex === environmentPageList.length - 1;
+}
 $("#run-environment").addEventListener("click", () => {
   try {
     environmentSnapshot = collectEnvironment();
     logger.log("environment", "probe-complete", environmentSnapshot);
-    renderRows($("#environment-output"), environmentRows(environmentSnapshot));
+    environmentPageList = environmentPages(environmentSnapshot);
+    environmentPageIndex = 0;
+    renderEnvironmentPage();
     $("#environment-status").textContent = `Captured ${environmentSnapshot.capturedAt}`;
   } catch (error) {
     logger.log("environment", "probe-failed", errorDetails(error));
     $("#environment-status").textContent = `${error.name}: ${error.message}`;
   }
+});
+$("#environment-previous").addEventListener("click", () => {
+  environmentPageIndex = Math.max(0, environmentPageIndex - 1);
+  renderEnvironmentPage();
+  logger.log("environment", "page-changed", { pageIndex: environmentPageIndex, title: environmentPageList[environmentPageIndex]?.title });
+});
+$("#environment-next").addEventListener("click", () => {
+  if (!environmentPageList.length) return;
+  environmentPageIndex = Math.min(environmentPageList.length - 1, environmentPageIndex + 1);
+  renderEnvironmentPage();
+  logger.log("environment", "page-changed", { pageIndex: environmentPageIndex, title: environmentPageList[environmentPageIndex]?.title });
 });
 $("#copy-environment").addEventListener("click", async () => {
   if (!environmentSnapshot) environmentSnapshot = collectEnvironment();
@@ -125,10 +210,9 @@ for (let index = 1; index <= 12; index += 1) {
   button.textContent = `Long item ${String(index).padStart(2, "0")}`;
   $("#long-list").append(button);
 }
-const inputUi = { active: false, eventCount: 0 };
+const inputUi = { active: false, eventCount: 0, mode: "observe-only", recentEvents: [] };
 const inputProbe = createInputProbe({
   logger,
-  root: $("#input-controls"),
   onUpdate(update) {
     Object.assign(inputUi, update);
     $("#input-status").textContent = `${inputUi.active ? "Running" : "Stopped"} · ${inputUi.eventCount} events observed`;
@@ -136,16 +220,68 @@ const inputProbe = createInputProbe({
     if (update.focus) $("#input-focus").textContent = update.focus;
     if (update.selection) $("#input-selection").textContent = update.selection;
     if (update.pairText) $("#input-pair").textContent = update.pairText;
+    if (update.lastEvent) {
+      $("#last-event-type").textContent = update.lastEvent.type;
+      $("#last-event-key").textContent = update.lastEvent.key;
+      $("#last-event-code").textContent = update.lastEvent.code;
+    }
+    if (update.pairSummary) renderPairSummary(update.pairSummary);
+    if (update.recentEvents) renderInputEvents(update.recentEvents);
   }
 });
 $("#start-input").addEventListener("click", () => inputProbe.start());
 $("#stop-input").addEventListener("click", () => inputProbe.stop());
-$("#prevent-default").addEventListener("click", (event) => {
-  const enabled = event.currentTarget.getAttribute("aria-pressed") !== "true";
-  inputProbe.setPreventNavigation(enabled);
-  event.currentTarget.setAttribute("aria-pressed", String(enabled));
-  event.currentTarget.textContent = `Prevent navigation defaults: ${enabled ? "On" : "Off"}`;
-});
+const modeHelp = {
+  "observe-only": "Observe Only records raw runtime behavior without preventDefault or app focus routing.",
+  "browser-default": "Browser Default leaves focus and activation to the MRBD Web Runtime and records the result.",
+  "app-navigation": "App Navigation records raw events first, then prevents Arrow/Enter defaults and moves focus itself. Escape remains untouched."
+};
+$$("[data-input-mode]").forEach((button) => button.addEventListener("click", () => {
+  const mode = inputProbe.setMode(button.dataset.inputMode);
+  $$("[data-input-mode]").forEach((candidate) => candidate.setAttribute("aria-pressed", String(candidate.dataset.inputMode === mode)));
+  $("#input-mode-help").textContent = modeHelp[mode];
+}));
+
+function renderPairSummary(summary) {
+  const container = $("#pair-summary");
+  container.replaceChildren();
+  summary.forEach((item) => {
+    const row = document.createElement("div");
+    row.className = "pair-row";
+    const key = document.createElement("strong");
+    const down = document.createElement("span");
+    const up = document.createElement("span");
+    key.textContent = item.key;
+    down.textContent = item.down ? "down ✓" : "down —";
+    up.textContent = item.up ? "up ✓" : "up —";
+    row.append(key, down, up);
+    container.append(row);
+  });
+}
+
+function renderInputEvents(events) {
+  const container = $("#input-event-list");
+  container.replaceChildren();
+  if (!events.length) {
+    const empty = document.createElement("p");
+    empty.textContent = "No input events observed.";
+    container.append(empty);
+    return;
+  }
+  events.slice().reverse().forEach((event) => {
+    const row = document.createElement("div");
+    row.className = "input-event-row";
+    const sequence = document.createElement("span");
+    const eventName = document.createElement("strong");
+    const detail = document.createElement("small");
+    sequence.textContent = `#${event.seq}`;
+    eventName.textContent = `${event.type} · ${event.key}`;
+    detail.textContent = `code ${event.code} · ${event.timestamp} ms · focus ${event.focus} · click ${event.click ? "yes" : "no"}`;
+    row.append(sequence, eventName, detail);
+    container.append(row);
+  });
+}
+renderPairSummary(["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight", "Enter", "Escape"].map((key) => ({ key, down: false, up: false })));
 
 async function runStorageAction(label, action) {
   $("#storage-status").textContent = `${label} running…`;
@@ -154,12 +290,26 @@ async function runStorageAction(label, action) {
     logger.log("storage", `${label}-complete`, result);
     renderRows($("#storage-output"), Object.entries(flatten(result)));
     $("#storage-status").textContent = `${label} complete`;
+    updateStorageSummary();
   } catch (error) {
     const details = errorDetails(error);
     logger.log("storage", `${label}-failed`, details);
     renderRows($("#storage-output"), Object.entries(details));
     $("#storage-status").textContent = `${details.name}: ${details.message}`;
   }
+}
+
+function updateStorageSummary() {
+  let testValue = "Unavailable";
+  try {
+    testValue = browserLocalStorage?.getItem("mrbdProbe.testValue") ?? "(not set)";
+  } catch (error) {
+    testValue = `${errorDetails(error).name}: ${errorDetails(error).message}`;
+  }
+  $("#storage-launch-count").textContent = String(launchState.launchCount);
+  $("#storage-current-value").textContent = testValue;
+  $("#storage-previous-launch").textContent = launchState.previousLaunchAt || "(first recorded launch)";
+  $("#storage-page-instance").textContent = pageInstanceId;
 }
 
 $("#test-local").addEventListener("click", () => runStorageAction("localStorage-test", () => {
@@ -326,7 +476,77 @@ function updateLifecycleReadout() {
     wrap.append(dt, dd);
     container.append(wrap);
   });
+
+  const interpretation = interpretLifecycleEvidence({
+    currentPageInstanceId: pageInstanceId,
+    previousCheckpoint,
+    lastEvent: lifecycleState.lastEvent,
+    pageshowPersisted: lifecycleState.pageshowPersisted,
+    visibilityRestored: lifecycleState.visibilityRestored,
+    navigationType: navigation?.type || "unavailable"
+  });
+  $("#lifecycle-interpretation").textContent = interpretation;
+  renderDiagnosticRows([
+    ["Current page instance", pageInstanceId],
+    ["Current session", sessionId],
+    ["Launch count", String(launchState.launchCount)],
+    ["Visibility", document.visibilityState],
+    ["Last lifecycle event", lifecycleState.lastEvent],
+    ["Last pagehide", lifecycleState.lastPagehideAt || "Not observed"],
+    ["Last pageshow", lifecycleState.lastPageshowAt || "Not observed"],
+    ["Last visibility change", lifecycleState.lastVisibilityChangeAt || "Not observed"],
+    ["pageshow.persisted", lifecycleState.pageshowPersisted ? "true observed" : "Not observed"],
+    ["Page started", pageStartedAt],
+    ["Previous instance", previousCheckpoint?.pageInstanceId || "No checkpoint"],
+    ["Previous last event", previousCheckpoint?.lastLifecycleEvent || "No checkpoint"],
+    ["Previous state", previousCheckpoint?.visibilityState || "No checkpoint"],
+    ["Previous saved at", previousCheckpoint?.savedAt || "No checkpoint"],
+    ["Navigation type", navigation?.type || "unavailable"]
+  ]);
 }
+
+function renderDiagnosticRows(rows) {
+  const container = $("#lifecycle-diagnostic");
+  if (!container) return;
+  container.replaceChildren();
+  rows.forEach(([term, value]) => {
+    const wrap = document.createElement("div");
+    const dt = document.createElement("dt");
+    const dd = document.createElement("dd");
+    dt.textContent = term;
+    dd.textContent = value;
+    wrap.append(dt, dd);
+    container.append(wrap);
+  });
+}
+
+function persistLifecycleCheckpoint(lastLifecycleEvent) {
+  if (!browserLocalStorage) return null;
+  try {
+    return writeLifecycleCheckpoint(browserLocalStorage, {
+      pageInstanceId,
+      sessionId,
+      lastLifecycleEvent,
+      visibilityState: document.visibilityState,
+      savedAt: new Date().toISOString()
+    });
+  } catch (error) {
+    logger.log("lifecycle", "checkpoint-write-failed", errorDetails(error));
+    return null;
+  }
+}
+
+$("#mark-middle-pinch").addEventListener("click", () => {
+  const marker = "before-middle-pinch";
+  logger.log("lifecycle", "marker", { note: marker, intent: "MRBD system-menu lifecycle diagnostic" });
+  lifecycleState.lastEvent = marker;
+  const checkpoint = persistLifecycleCheckpoint(marker);
+  $("#lifecycle-status").textContent = checkpoint
+    ? "Marker saved. Perform middle pinch, then return to this Web App."
+    : "Marker logged in memory; lifecycle checkpoint could not be saved.";
+  updateLifecycleReadout();
+});
+
 $("#add-marker").addEventListener("click", () => {
   const note = $("#marker-note").value.trim();
   logger.log("lifecycle", "marker", { note: note || "(no note)" });
@@ -370,7 +590,7 @@ $("#share-json").addEventListener("click", async () => {
 $("#copy-summary").addEventListener("click", async () => {
   prepareExport();
   const snapshot = logger.exportSnapshot();
-  const summary = `MRBD Phase 1A Probe\nVersion ${snapshot.app.version} (${snapshot.app.gitCommit})\nSession ${snapshot.sessionId}\nEntries ${snapshot.entryCount}\nMRBD result: Not tested`;
+  const summary = `MRBD Phase 1A Probe\nVersion ${snapshot.app.version} (${snapshot.app.gitCommit})\nSession ${snapshot.sessionId}\nEntries ${snapshot.entryCount}\nEnvironment and device result: verify from exported evidence`;
   setExportStatus((await copyText(logger, summary, "Summary")).message);
 });
 $("#copy-json").addEventListener("click", async () => {
@@ -407,5 +627,7 @@ function flatten(value, prefix = "", result = {}) {
 }
 
 logger.log("app", "initialized", { buildInfo: BUILD_INFO, pageInstanceId, sessionId, launchState });
+persistLifecycleCheckpoint("script-start");
 refreshRecent();
+updateStorageSummary();
 updateLifecycleReadout();
