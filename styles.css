@@ -12,7 +12,7 @@
 * { box-sizing: border-box; }
 html, body { margin: 0; min-height: 100%; background: var(--bg); color: var(--text); }
 body { display: grid; place-items: start center; }
-button, input, textarea { font: inherit; }
+button, input, textarea, select { font: inherit; }
 button {
   min-height: 48px; padding: .7rem .9rem; border: 1px solid var(--line); border-radius: 4px;
   color: var(--text); background: var(--surface); text-align: left; cursor: pointer;
@@ -24,6 +24,8 @@ button:focus-visible, input:focus-visible, textarea:focus-visible {
 }
 button:active { transform: translateY(1px); }
 button[aria-pressed="true"] { color: var(--bg); background: var(--accent); border-color: var(--accent); }
+.activation-flash { color: var(--bg) !important; background: var(--accent) !important; }
+.activation-feedback { position: sticky; top: 0; z-index: 2; margin: 12px 0; padding: 12px; border-left: 4px solid var(--accent); background: #10251d; font-weight: 750; white-space: pre-line; }
 .shell { width: min(100%, 760px); min-height: 100svh; padding: 18px; display: grid; grid-template-rows: auto 1fr auto; gap: 16px; }
 .status-bar { border-bottom: 1px solid var(--line); padding-bottom: 12px; }
 .display-toggle { margin-top: 12px; width: 100%; text-align: center; }
@@ -103,7 +105,7 @@ dd { margin: 3px 0 0; font: 700 .78rem ui-monospace, SFMono-Regular, Menlo, mono
 .evidence-label { color: var(--accent); font-size: .72rem; letter-spacing: .1em; text-transform: uppercase; }
 .interpretation { font-size: 1.2rem; font-weight: 750; line-height: 1.25; }
 .value-field, .toggle-line { display: block; color: var(--muted); margin: 12px 0; }
-input, textarea { color: var(--text); background: #020403; border: 1px solid var(--line); border-radius: 3px; padding: .7rem; }
+input, textarea, select { color: var(--text); background: #020403; border: 1px solid var(--line); border-radius: 3px; padding: .7rem; }
 .value-field input { display: block; width: 100%; margin-top: 6px; }
 .input-lab { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
 fieldset { border: 1px solid var(--line); margin: 0; padding: 10px; min-width: 0; }
@@ -116,6 +118,11 @@ fieldset button { width: 100%; margin: 3px 0; }
 .warning { color: var(--danger); }
 textarea { width: 100%; resize: vertical; font: .72rem/1.45 ui-monospace, monospace; }
 footer { display: flex; justify-content: space-between; gap: 12px; border-top: 1px solid var(--line); padding-top: 10px; color: var(--muted); font-size: .65rem; letter-spacing: .07em; }
+.probe-options { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+.probe-options label { display: grid; gap: 5px; color: var(--muted); font-size: .78rem; }
+.probe-options input, .probe-options select { width: 100%; }
+.fixed-recent { max-height: 150px; overflow: auto; }
+.probe-page[hidden] { display: none; }
 
 body.large-text { font-size: 26px; }
 body.large-text .shell { width: min(100%, 800px); padding: 18px; gap: 20px; }
@@ -127,7 +134,7 @@ body.large-text .section-heading > p:last-child,
 body.large-text .mode-help,
 body.large-text .warning { font-size: 24px; }
 body.large-text button { min-height: 68px; padding: 14px 16px; font-size: 27px; line-height: 1.15; }
-body.large-text input, body.large-text textarea { font-size: 26px; padding: 14px; }
+body.large-text input, body.large-text textarea, body.large-text select { font-size: 26px; padding: 14px; }
 body.large-text dt { font-size: 18px; }
 body.large-text dd { font-size: 24px; line-height: 1.25; }
 body.large-text .build-strip { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
@@ -164,10 +171,12 @@ body.large-text legend { font-size: 20px; }
 body.large-text .input-lab { grid-template-columns: 1fr; }
 body.large-text .horizontal, body.large-text .long-list { grid-column: auto; }
 body.large-text .horizontal button { width: calc(33.33% - 5px); font-size: 23px; padding-inline: 8px; }
+body.large-text .probe-options { grid-template-columns: 1fr; }
 @media (max-width: 600px) {
   .shell { min-height: 600px; padding: 14px; }
   .status-bar { display: grid; grid-template-columns: 1fr; }
   .build-strip { grid-template-columns: repeat(5, 1fr); gap: 4px; }
   .build-strip dt { font-size: .52rem; }.build-strip dd { font-size: .65rem; }
   .input-lab { grid-template-columns: 1fr; }.horizontal, .long-list { grid-column: auto; }
+  .probe-options { grid-template-columns: 1fr; }
 }

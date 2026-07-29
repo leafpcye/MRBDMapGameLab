@@ -12,6 +12,10 @@ import { readLifecycleCheckpoint, writeLifecycleCheckpoint, classifyLifecycleEvi
 import { getDirectionalNeighbor } from "./modules/navigation.js";
 import { initializeRuntimeContext, getRuntimeContext, checkRuntimeContextConsistency } from "./modules/runtime-context.js";
 import { createLifecycleTrace } from "./modules/lifecycle-trace.js";
+import { createActivationTracker, flashActivation } from "./modules/activation.js";
+import { createRuntimeSnapshot, saveRuntimeSnapshot, readRuntimeSnapshot, compareRuntimeSnapshots } from "./modules/runtime-snapshot.js";
+import { createLocationProbe, LOCATION_PRESETS, DEFAULT_LOCATION_THRESHOLDS } from "./modules/location.js";
+import { createMotionProbe } from "./modules/motion.js";
 
 let browserLocalStorage = null;
 let browserSessionStorage = null;
@@ -51,6 +55,8 @@ document.body.classList.toggle("large-text", largeTextEnabled);
 
 const previousCheckpointResult = readLifecycleCheckpoint(browserLocalStorage);
 const previousCheckpoint = previousCheckpointResult.checkpoint;
+const previousRuntimeSnapshotResult = readRuntimeSnapshot(browserLocalStorage);
+let lastLifecycleMarker = "";
 const lifecycleTrace = createLifecycleTrace({
   storage: browserLocalStorage,
   runtimeContext
@@ -148,7 +154,7 @@ document.addEventListener("keydown", (event) => {
     return;
   }
   if (!["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight"].includes(event.key)) return;
-  const focusable = $$(`.page.active button:not([disabled]), .page.active input:not([disabled])`);
+  const focusable = $$(`.page.active button:not([disabled]), .page.active input:not([disabled]), .page.active select:not([disabled]), .page.active textarea:not([disabled])`);
   const index = focusable.indexOf(document.activeElement);
   if (index < 0) return;
   let next = index;
@@ -230,6 +236,32 @@ for (let index = 1; index <= 12; index += 1) {
   button.textContent = `Long item ${String(index).padStart(2, "0")}`;
   $("#long-list").append(button);
 }
+const pointerTimes = new Map();
+const activationTracker = createActivationTracker({
+  onActivation(result) {
+    const control = $$("[data-test-control]").find((item) => item.dataset.testControl === result.name);
+    $("#activation-feedback").textContent = `Activated: ${control?.textContent?.trim() || result.name}\nActivation count: ${result.count}\nLast activation: ${result.localTime}\nSource: ${result.source}`;
+    if (control) flashActivation({ setActive: (active) => control.classList.toggle("activation-flash", active) });
+    logger.log("input", "control-activated", result);
+  }
+});
+$("#input-controls").addEventListener("pointerdown", (event) => {
+  const control = event.target.closest?.("[data-test-control]");
+  if (control) pointerTimes.set(control.dataset.testControl, Date.now());
+});
+$("#input-controls").addEventListener("keydown", (event) => {
+  const control = event.target.closest?.("[data-test-control]");
+  if (control && event.key === "Enter" && !event.repeat) {
+    activationTracker.activate(control.dataset.testControl, "keyboard");
+  }
+});
+$("#input-controls").addEventListener("click", (event) => {
+  const control = event.target.closest?.("[data-test-control]");
+  if (!control) return;
+  const lastPointer = pointerTimes.get(control.dataset.testControl) ?? -Infinity;
+  const source = Date.now() - lastPointer < 1000 ? "pointer" : event.detail > 0 ? "click" : "unknown";
+  activationTracker.activate(control.dataset.testControl, source);
+});
 const inputUi = {
   active: false,
   eventCount: 0,
@@ -572,7 +604,49 @@ function updateLifecycleReadout() {
     ["Navigation type", navigation?.type || "unavailable"]
   ]);
   renderLifecycleTrace(lifecycleTrace.getEntries());
+  renderRuntimeSnapshot();
 }
+
+function renderRuntimeSnapshot() {
+  const current = createRuntimeSnapshot(runtimeContext, {
+    marker: lastLifecycleMarker,
+    classification: classifyLifecycleEvidence({
+      currentContext: runtimeContext,
+      previousCheckpoint,
+      traceEntries: lifecycleTrace.getEntries(),
+      contextConsistent: runtimeConsistency().status === "OK"
+    })
+  });
+  const comparison = compareRuntimeSnapshots(previousRuntimeSnapshotResult.snapshot, current);
+  renderRows($("#runtime-snapshot-readout"), [
+    ["Current page", current.pageInstanceId],
+    ["Current session", current.sessionId],
+    ["Current boot", String(current.documentBootCount)],
+    ["Last marker", lastLifecycleMarker || "None in this document"],
+    ["Classification", current.classification],
+    ["Previous saved page", previousRuntimeSnapshotResult.snapshot?.pageInstanceId || "None"],
+    ["Previous saved session", previousRuntimeSnapshotResult.snapshot?.sessionId || "None"],
+    ["Previous saved boot", previousRuntimeSnapshotResult.snapshot?.documentBootCount ?? "None"],
+    ["Changed", comparison.changed === null ? "No comparison" : String(comparison.changed)],
+    ["Comparison", comparison.classification]
+  ]);
+}
+
+$("#save-runtime-snapshot").addEventListener("click", () => {
+  try {
+    const snapshot = createRuntimeSnapshot(runtimeContext, {
+      marker: lastLifecycleMarker,
+      classification: $("#lifecycle-interpretation").textContent
+    });
+    saveRuntimeSnapshot(browserLocalStorage, snapshot);
+    logger.log("lifecycle", "runtime-snapshot-saved", snapshot);
+    $("#lifecycle-status").textContent = "Current runtime snapshot saved to localStorage.";
+  } catch (error) {
+    logger.log("lifecycle", "runtime-snapshot-save-failed", errorDetails(error));
+    $("#lifecycle-status").textContent = `${error.name}: ${error.message}`;
+  }
+  renderRuntimeSnapshot();
+});
 
 let contextErrorLogged = false;
 function runtimeConsistency() {
@@ -643,6 +717,7 @@ function persistLifecycleCheckpoint(lastLifecycleEvent) {
 
 $("#mark-middle-pinch").addEventListener("click", () => {
   const marker = "before-middle-pinch";
+  lastLifecycleMarker = marker;
   logger.log("lifecycle", "marker", { note: marker, intent: "MRBD system-menu lifecycle diagnostic" });
   lifecycleTrace.mark(marker);
   lifecycleState.lastEvent = marker;
@@ -655,6 +730,7 @@ $("#mark-middle-pinch").addEventListener("click", () => {
 
 $("#add-marker").addEventListener("click", () => {
   const note = $("#marker-note").value.trim();
+  lastLifecycleMarker = note || "(no note)";
   logger.log("lifecycle", "marker", { note: note || "(no note)" });
   lifecycleTrace.mark("marker");
   $("#lifecycle-status").textContent = `Marker recorded: ${note || "(no note)"}`;
@@ -698,7 +774,7 @@ $("#share-json").addEventListener("click", async () => {
 $("#copy-summary").addEventListener("click", async () => {
   prepareExport();
   const snapshot = logger.exportSnapshot();
-  const summary = `MRBD Phase 1A Probe\nVersion ${snapshot.app.version} (${snapshot.app.gitCommit})\nSession ${snapshot.sessionId}\nEntries ${snapshot.entryCount}\nEnvironment and device result: verify from exported evidence`;
+  const summary = `MRBD Capability Probe\nVersion ${snapshot.app.version} (${snapshot.app.gitCommit})\nSession ${snapshot.sessionId}\nEntries ${snapshot.entryCount}\nEnvironment and device result: verify from exported evidence`;
   setExportStatus((await copyText(logger, summary, "Summary")).message);
 });
 $("#copy-json").addEventListener("click", async () => {
@@ -725,11 +801,295 @@ $("#previous-segment").addEventListener("click", () => { exportSegmentIndex = Ma
 $("#next-segment").addEventListener("click", () => { exportSegmentIndex = Math.min(exportSegments.length - 1, exportSegmentIndex + 1); showSegment(); });
 $("#clear-all").addEventListener("click", () => { logger.clear(); setExportStatus("In-memory log cleared; clear event recorded."); });
 
+const locationThresholds = { ...DEFAULT_LOCATION_THRESHOLDS };
+let latestLocationRecord = null;
+const locationMarkers = [];
+const locationProbe = createLocationProbe({
+  logger,
+  runtimeContext,
+  thresholds: locationThresholds,
+  onUpdate(update) {
+    if (update.record) latestLocationRecord = update.record;
+    $("#location-status").textContent = update.status || "Ready";
+    $("#location-watch").textContent = update.active ? "Active" : "Stopped";
+    if (update.error?.codeName === "PERMISSION_DENIED") $("#location-permission").textContent = "Denied";
+    const snapshot = locationProbe.snapshot();
+    $("#location-count").textContent = String(snapshot.summary.sampleCount);
+    renderRows($("#location-current"), Object.entries(flatten(update.record || latestLocationRecord || { position: "No position received" })));
+    renderRows($("#location-summary"), Object.entries(flatten(snapshot.summary)));
+    renderCombined();
+  }
+});
+$("#location-api").textContent = navigator.geolocation ? "Present · operation not yet tested" : "Missing";
+if (navigator.permissions?.query) {
+  navigator.permissions.query({ name: "geolocation" }).then((status) => {
+    $("#location-permission").textContent = status.state;
+    logger.log("location", "permission-state-observed", { state: status.state, source: "Permissions API; no prompt requested" });
+    status.addEventListener?.("change", () => {
+      $("#location-permission").textContent = status.state;
+      logger.log("location", "permission-state-changed", { state: status.state });
+    });
+  }).catch((error) => {
+    $("#location-permission").textContent = `Permission state unavailable: ${error.name}`;
+    logger.log("location", "permission-query-failed", errorDetails(error));
+  });
+} else {
+  $("#location-permission").textContent = "Permission state unavailable";
+}
+
+function syncLocationOptions() {
+  Object.assign(locationThresholds, {
+    poorAccuracyM: Number($("#threshold-accuracy").value),
+    suspiciousJumpDistanceM: Number($("#threshold-jump").value),
+    suspiciousDerivedSpeedMps: Number($("#threshold-speed").value),
+    duplicateToleranceM: Number($("#threshold-duplicate").value),
+    longCallbackGapMs: Number($("#threshold-gap").value)
+  });
+  const options = locationProbe.setOptions(LOCATION_PRESETS[$("#location-preset").value]);
+  renderRows($("#location-options-output"), Object.entries(options));
+  return options;
+}
+$("#location-one").addEventListener("click", () => { syncLocationOptions(); $("#location-permission").textContent = "Requested by Get One"; locationProbe.getOne(); });
+$("#location-start").addEventListener("click", () => { syncLocationOptions(); $("#location-permission").textContent = "Requested by Start Watch"; locationProbe.startWatch(); });
+$("#location-stop").addEventListener("click", () => locationProbe.stopWatch());
+$("#location-clear").addEventListener("click", () => { latestLocationRecord = null; locationProbe.clear(); });
+$("#location-marker").addEventListener("click", () => {
+  locationMarkers.push(locationProbe.addMarker($("#location-marker-note").value.trim()));
+  $("#location-status").textContent = "Location marker recorded";
+});
+
+function deviceTestMetadata() {
+  return {
+    testPhase: "Phase 1B foreground",
+    device: "Fill during real-device test",
+    operator: "Fill during real-device test",
+    appVersion: BUILD_INFO.version,
+    gitCommit: BUILD_INFO.gitCommit,
+    exportedAt: new Date().toISOString()
+  };
+}
+function filteredExport(type, moduleNames, probeData) {
+  return JSON.stringify({
+    schemaVersion: 1,
+    exportType: type,
+    deviceTestMetadata: deviceTestMetadata(),
+    runtimeContext,
+    environment: collectEnvironment(),
+    ...probeData,
+    entries: logger.getEntries().filter((entry) => moduleNames.includes(entry.module))
+  }, null, 2);
+}
+$("#location-export").addEventListener("click", () => {
+  const snapshot = locationProbe.snapshot();
+  const content = filteredExport("location", ["location"], {
+    locationOptions: snapshot.options,
+    qualityThresholds: snapshot.thresholds,
+    sensorSamplingSettings: null,
+    markers: locationMarkers,
+    summary: snapshot.summary,
+    records: snapshot.records
+  });
+  $("#location-status").textContent = triggerDownload(logger, content, "application/json", "location.json").message;
+});
+
+let motionSamplingHz = 10;
+const motionMarkers = [];
+const motionUi = { orientation: null, motion: null, permission: null };
+const motionProbe = createMotionProbe({
+  logger,
+  runtimeContext,
+  getLocation: () => latestLocationRecord,
+  onUpdate(update) {
+    if (update.kind === "permission") {
+      motionUi.permission = { ...(motionUi.permission || {}), [update.type]: update.result };
+      $("#motion-status").textContent = `${update.type}: ${update.result}`;
+      $("#sensor-permission").textContent = Object.entries(motionUi.permission).map(([key, value]) => `${key.replace("Device", "")}: ${value}`).join(" · ");
+      return;
+    }
+    if (update.kind === "orientation") {
+      if (update.current) motionUi.orientation = update;
+      renderRows($("#orientation-output"), Object.entries(flatten({
+        units: "alpha/beta/gamma degrees",
+        current: motionUi.orientation?.current || "No sample",
+        stats: update.stats
+      })));
+    }
+    if (update.kind === "motion") {
+      if (update.current) motionUi.motion = update;
+      renderRows($("#motion-output"), Object.entries(flatten({
+        units: "acceleration m/s²; rotation rate deg/s; interval ms",
+        current: motionUi.motion?.current || "No sample",
+        stats: update.stats
+      })));
+    }
+    $("#motion-status").textContent = `${motionProbe.isActive() ? "Running" : "Stopped"} · UI/log ${motionSamplingHz} Hz`;
+    renderCombined();
+  }
+});
+$("#orientation-api").textContent = `DeviceOrientationEvent: ${"DeviceOrientationEvent" in window ? "Present" : "Missing"} · requestPermission: ${typeof window.DeviceOrientationEvent?.requestPermission === "function" ? "Present" : "Missing"}`;
+$("#motion-api").textContent = `DeviceMotionEvent: ${"DeviceMotionEvent" in window ? "Present" : "Missing"} · requestPermission: ${typeof window.DeviceMotionEvent?.requestPermission === "function" ? "Present" : "Missing"}`;
+$("#motion-permission").addEventListener("click", () => motionProbe.requestPermission());
+$("#orientation-start").addEventListener("click", () => motionProbe.startOrientation());
+$("#orientation-stop").addEventListener("click", () => motionProbe.stopOrientation());
+$("#motion-start").addEventListener("click", () => motionProbe.startMotion());
+$("#motion-stop").addEventListener("click", () => motionProbe.stopMotion());
+$("#both-start").addEventListener("click", () => motionProbe.startBoth());
+$("#both-stop").addEventListener("click", () => motionProbe.stopBoth());
+$$("[data-sampling-hz]").forEach((button) => button.addEventListener("click", () => {
+  motionSamplingHz = Number(button.dataset.samplingHz);
+  motionProbe.setSamplingHz(motionSamplingHz);
+  $$("[data-sampling-hz]").forEach((item) => item.setAttribute("aria-pressed", String(item === button)));
+}));
+$("#motion-marker").addEventListener("click", () => {
+  const note = [$("#motion-marker-preset").value, $("#motion-marker-note").value.trim()].filter(Boolean).join(" · ");
+  motionMarkers.push(motionProbe.addMarker(note));
+  $("#motion-status").textContent = "IMU marker recorded";
+});
+$("#motion-clear").addEventListener("click", () => { motionProbe.clear(); motionUi.orientation = null; motionUi.motion = null; });
+$("#motion-export").addEventListener("click", () => {
+  const content = filteredExport("imu", ["motion", "orientation"], {
+    locationOptions: null,
+    qualityThresholds: null,
+    sensorSamplingSettings: { uiAndLogSamplingHz: motionSamplingHz, note: "Not the hardware sensor frequency" },
+    imu: motionProbe.snapshot(),
+    markers: motionMarkers,
+    summary: motionProbe.snapshot()
+  });
+  $("#motion-status").textContent = triggerDownload(logger, content, "application/json", "imu.json").message;
+});
+
+let combinedStartedAt = null;
+let combinedSessionId = null;
+const combinedMarkers = [];
+let combinedTimer = null;
+function renderCombined() {
+  const now = Date.now();
+  const locationAgeMs = latestLocationRecord ? now - latestLocationRecord.receivedAtMs : null;
+  const orientationAgeMs = motionUi.orientation?.current?.timeStamp == null ? null : performance.now() - motionUi.orientation.current.timeStamp;
+  const motionAgeMs = motionUi.motion?.current?.timeStamp == null ? null : performance.now() - motionUi.motion.current.timeStamp;
+  const rows = [
+    ["Combined", combinedStartedAt ? "Active" : "Stopped"],
+    ["Combined session", combinedSessionId || "—"],
+    ["Elapsed", combinedStartedAt ? `${now - combinedStartedAt} ms` : "—"],
+    ["Location", locationProbe.isActive() ? "Active" : "Stopped"],
+    ["Orientation", motionProbe.snapshot().active.orientation ? "Active" : "Stopped"],
+    ["Motion", motionProbe.snapshot().active.motion ? "Active" : "Stopped"],
+    ["Location age", locationAgeMs === null ? "No sample" : `${locationAgeMs} ms`],
+    ["Orientation age", orientationAgeMs === null ? "No sample" : `${orientationAgeMs.toFixed(0)} ms`],
+    ["Motion age", motionAgeMs === null ? "No sample" : `${motionAgeMs.toFixed(0)} ms`]
+  ];
+  const container = $("#combined-readout");
+  container.replaceChildren();
+  rows.forEach(([label, value]) => {
+    const wrap = document.createElement("div");
+    const dt = document.createElement("dt");
+    const dd = document.createElement("dd");
+    dt.textContent = label;
+    dd.textContent = value;
+    wrap.append(dt, dd);
+    container.append(wrap);
+  });
+  renderRows($("#combined-detail"), Object.entries(flatten({
+    location: latestLocationRecord || "No sample",
+    orientation: motionUi.orientation?.current || "No sample",
+    motion: motionUi.motion?.current || "No sample"
+  })));
+}
+$("#combined-start").addEventListener("click", () => {
+  syncLocationOptions();
+  locationProbe.startWatch();
+  motionProbe.startBoth();
+  combinedStartedAt = Date.now();
+  combinedSessionId = `combined-${combinedStartedAt}-${Math.random().toString(16).slice(2, 8)}`;
+  logger.log("combined", "started", { combinedSessionId, startedAt: new Date(combinedStartedAt).toISOString(), samplingHz: motionSamplingHz });
+  $("#combined-status").textContent = "Running in foreground";
+  clearInterval(combinedTimer);
+  combinedTimer = setInterval(renderCombined, 1000);
+  renderCombined();
+});
+function stopCombined() {
+  locationProbe.stopWatch();
+  motionProbe.stopBoth();
+  clearInterval(combinedTimer);
+  combinedTimer = null;
+  logger.log("combined", "stopped", { combinedSessionId, elapsedMs: combinedStartedAt ? Date.now() - combinedStartedAt : 0 });
+  combinedStartedAt = null;
+  $("#combined-status").textContent = "Stopped";
+  renderCombined();
+}
+$("#combined-stop").addEventListener("click", stopCombined);
+$("#combined-marker").addEventListener("click", () => {
+  const marker = {
+    wallTime: new Date().toISOString(),
+    monotonicMs: performance.now(),
+    runtimeContext,
+    combinedSessionId,
+    location: latestLocationRecord,
+    orientation: motionUi.orientation?.current || null,
+    motion: motionUi.motion?.current || null
+  };
+  combinedMarkers.push(marker);
+  logger.log("combined", "marker", marker);
+});
+$("#combined-export").addEventListener("click", () => {
+  const content = filteredExport("location-and-imu", ["location", "motion", "orientation", "combined"], {
+    locationOptions: locationProbe.snapshot().options,
+    qualityThresholds: locationThresholds,
+    sensorSamplingSettings: { uiAndLogSamplingHz: motionSamplingHz, note: "Not the hardware sensor frequency" },
+    location: locationProbe.snapshot().records,
+    imu: motionProbe.snapshot(),
+    markers: combinedMarkers,
+    summary: { location: locationProbe.snapshot().summary }
+  });
+  $("#combined-status").textContent = triggerDownload(logger, content, "application/json", "combined.json").message;
+});
+
+function installTwoPagePager(prefix, titles) {
+  let index = 0;
+  const panels = prefix === "location"
+    ? [$("#location-current"), $("#location-summary")]
+    : prefix === "motion"
+      ? [$("#orientation-panel"), $("#motion-panel")]
+      : [$("#combined-detail"), $("#combined-log")];
+  const render = () => {
+    panels.forEach((panel, panelIndex) => { panel.hidden = panelIndex !== index; });
+    $(`#${prefix}-page-title`).textContent = `${titles[index]} · ${index + 1}/${titles.length}`;
+    $(`#${prefix}-previous`).disabled = index === 0;
+    $(`#${prefix}-next`).disabled = index === titles.length - 1;
+  };
+  $(`#${prefix}-previous`).addEventListener("click", () => { index = Math.max(0, index - 1); render(); });
+  $(`#${prefix}-next`).addEventListener("click", () => { index = Math.min(titles.length - 1, index + 1); render(); });
+  render();
+}
+installTwoPagePager("location", ["Current", "Session Summary"]);
+installTwoPagePager("motion", ["Orientation", "Motion"]);
+installTwoPagePager("combined", ["Status", "Recent Combined Events"]);
+renderRows($("#location-current"), [["Position", "No position received"]]);
+renderRows($("#location-summary"), Object.entries(locationProbe.snapshot().summary));
+syncLocationOptions();
+renderRows($("#orientation-output"), [["Orientation", "No sample"]]);
+renderRows($("#motion-output"), [["Motion", "No sample"]]);
+renderCombined();
+
+window.addEventListener("pagehide", () => {
+  locationProbe.stopWatch();
+  motionProbe.stopBoth();
+  clearInterval(combinedTimer);
+});
+
 function flatten(value, prefix = "", result = {}) {
   if (value && typeof value === "object" && !Array.isArray(value)) {
     Object.entries(value).forEach(([key, child]) => flatten(child, prefix ? `${prefix}.${key}` : key, result));
   } else {
-    result[prefix] = Array.isArray(value) ? JSON.stringify(value) : String(value);
+    result[prefix] = Array.isArray(value)
+      ? JSON.stringify(value)
+      : value === undefined
+        ? "(undefined)"
+        : value === null
+          ? "(null)"
+          : value === ""
+            ? "(empty)"
+            : String(value);
   }
   return result;
 }

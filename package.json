@@ -1,9 +1,9 @@
 {
   "name": "mrbd-map-game-lab",
-  "version": "0.1.2",
+  "version": "0.2.0",
   "private": true,
   "type": "module",
-  "description": "Phase 1A capability probe for the Meta Ray-Ban Display web runtime.",
+  "description": "Phase 1A diagnostics plus Phase 1B foreground Location and IMU probes for the Meta Ray-Ban Display web runtime.",
   "scripts": {
     "build-info": "node scripts/generate-build-info.mjs",
     "build": "node scripts/build-site.mjs",

@@ -13,7 +13,7 @@
   <div id="app" class="shell">
     <header class="status-bar">
       <div>
-        <p class="eyebrow">MRBD / PHASE 1A</p>
+        <p class="eyebrow">MRBD / PHASE 1B</p>
         <h1>Capability Probe</h1>
       </div>
       <dl class="build-strip" aria-label="Build and session status">
@@ -40,6 +40,9 @@
           <button data-open="lifecycle"><span>04</span>Lifecycle<small>Hide, restore & reload</small></button>
           <button data-open="network"><span>05</span>Network<small>State & same-origin fetch</small></button>
           <button data-open="export"><span>06</span>Export<small>Download, share & fallback</small></button>
+          <button data-open="location"><span>07</span>Location<small>Foreground position evidence</small></button>
+          <button data-open="motion"><span>08</span>Motion / Orientation<small>Foreground IMU evidence</small></button>
+          <button data-open="combined"><span>09</span>Combined<small>Location + IMU timeline</small></button>
         </nav>
       </section>
 
@@ -82,6 +85,7 @@
           </section>
         </div>
         <div class="pair-panel"><h3>Pair Summary</h3><div id="pair-summary"></div></div>
+        <div id="activation-feedback" class="activation-feedback" aria-live="polite">No test control activated</div>
         <div id="input-controls" class="input-lab">
           <fieldset><legend>A · Single Button</legend><button id="single-button-test" data-test-control="single">Activate test button</button></fieldset>
           <fieldset class="vertical"><legend>B · Vertical List</legend><button id="vertical-option-1" data-test-control="vertical-1">Option 1</button><button id="vertical-option-2" data-test-control="vertical-2">Option 2</button><button id="vertical-option-3" data-test-control="vertical-3">Option 3</button><button id="vertical-option-4" data-test-control="vertical-4">Option 4</button><button id="vertical-option-5" data-test-control="vertical-5">Option 5</button></fieldset>
@@ -124,6 +128,11 @@
 
       <section class="page" data-page="lifecycle" aria-labelledby="lifecycle-title">
         <div class="section-heading"><p class="kicker">04 / PAGE STATE</p><h2 id="lifecycle-title">Lifecycle</h2><p id="lifecycle-status">Listeners active from script start</p></div>
+        <div class="diagnostic-panel runtime-snapshot">
+          <h3>Runtime Snapshot</h3>
+          <div id="runtime-snapshot-readout" class="results"></div>
+          <div class="actions"><button id="save-runtime-snapshot">Save Current Runtime Snapshot</button></div>
+        </div>
         <div class="diagnostic-panel">
           <h3>System Menu / Resume Diagnostic</h3>
           <p class="evidence-label">Evidence-based interpretation</p>
@@ -155,6 +164,57 @@
         <p id="export-warning" class="warning" hidden></p>
         <div id="export-text-wrap" hidden><label for="export-text">Export text (selectable, first segment if large)</label><textarea id="export-text" rows="12" readonly></textarea><div class="actions"><button id="previous-segment">Previous</button><button id="next-segment">Next</button><span id="segment-status"></span></div></div>
         <div data-recent="export" class="recent"></div>
+      </section>
+
+      <section class="page" data-page="location" aria-labelledby="location-title">
+        <div class="section-heading"><p class="kicker">07 / FOREGROUND</p><h2 id="location-title">Location</h2><p id="location-status">Manual probe · API presence is not proof of operation</p></div>
+        <dl class="live-readout">
+          <div><dt>API</dt><dd id="location-api">—</dd></div><div><dt>PERMISSION</dt><dd id="location-permission">Unknown</dd></div>
+          <div><dt>WATCH</dt><dd id="location-watch">Stopped</dd></div><div><dt>SAMPLES</dt><dd id="location-count">0</dd></div>
+        </dl>
+        <fieldset class="probe-options"><legend>Position Options · diagnostic defaults, not validated production thresholds</legend>
+          <label>Preset <select id="location-preset"><option value="high-accuracy">High Accuracy</option><option value="balanced">Balanced</option><option value="cached-quick">Cached Quick</option></select></label>
+          <label>Poor accuracy m <input id="threshold-accuracy" type="number" value="50" min="0"></label>
+          <label>Suspicious jump m <input id="threshold-jump" type="number" value="100" min="0"></label>
+          <label>Suspicious derived speed m/s <input id="threshold-speed" type="number" value="15" min="0"></label>
+          <label>Duplicate tolerance m <input id="threshold-duplicate" type="number" value="0.5" min="0" step="0.1"></label>
+          <label>Long callback gap ms <input id="threshold-gap" type="number" value="10000" min="0"></label>
+        </fieldset>
+        <div id="location-options-output" class="results"></div>
+        <div class="actions"><button id="location-one">Get One Position</button><button id="location-start">Start Watch</button><button id="location-stop">Stop Watch</button><button id="location-clear">Clear Location Session</button></div>
+        <label class="value-field">Marker note <input id="location-marker-note" maxlength="120" placeholder="Start outdoor walk"></label>
+        <div class="actions"><button id="location-marker">Add Marker</button><button id="location-export">Export Location JSON</button><button data-back>Back to Home</button></div>
+        <div class="pager"><button id="location-previous">Previous</button><strong id="location-page-title">Current · 1/2</strong><button id="location-next">Next</button></div>
+        <div id="location-current" class="results probe-page"></div>
+        <div id="location-summary" class="results probe-page" hidden></div>
+        <div data-recent="location" class="recent fixed-recent"></div>
+      </section>
+
+      <section class="page" data-page="motion" aria-labelledby="motion-title">
+        <div class="section-heading"><p class="kicker">08 / FOREGROUND IMU</p><h2 id="motion-title">Motion / Orientation</h2><p id="motion-status">Permission is requested only by the button below</p></div>
+        <dl class="live-readout">
+          <div><dt>ORIENTATION API</dt><dd id="orientation-api">—</dd></div><div><dt>MOTION API</dt><dd id="motion-api">—</dd></div>
+          <div><dt>PERMISSION</dt><dd id="sensor-permission">Not requested</dd></div>
+        </dl>
+        <div class="actions"><button id="motion-permission">Request Sensor Permission</button><button id="orientation-start">Start Orientation</button><button id="orientation-stop">Stop Orientation</button><button id="motion-start">Start Motion</button><button id="motion-stop">Stop Motion</button><button id="both-start">Start Both</button><button id="both-stop">Stop All</button></div>
+        <fieldset class="mode-selector"><legend>UI / log sampling (not sensor frequency)</legend><button data-sampling-hz="5">5 Hz</button><button data-sampling-hz="10" aria-pressed="true">10 Hz</button><button data-sampling-hz="20">20 Hz</button></fieldset>
+        <label class="value-field">Marker preset <select id="motion-marker-preset"><option>Baseline — both still</option><option>Move head only</option><option>Move phone only</option><option>Turn body with phone in pocket</option><option>Walk straight</option><option>Rotate head left/right</option><option>Nod head up/down</option></select></label>
+        <label class="value-field">Marker note <input id="motion-marker-note" maxlength="120" placeholder="Optional observation"></label>
+        <div class="actions"><button id="motion-marker">Add Marker</button><button id="motion-clear">Clear Sensor Session</button><button id="motion-export">Export Sensor JSON</button><button data-back>Back to Home</button></div>
+        <div class="pager"><button id="motion-previous">Previous</button><strong id="motion-page-title">Orientation · 1/2</strong><button id="motion-next">Next</button></div>
+        <section id="orientation-panel" class="probe-page"><h3>Orientation</h3><p class="warning">Alpha is a rotation value; compass meaning is unvalidated.</p><div id="orientation-output" class="results"></div></section>
+        <section id="motion-panel" class="probe-page" hidden><h3>Motion</h3><div id="motion-output" class="results"></div></section>
+        <div data-recent="orientation" class="recent fixed-recent"></div>
+        <div data-recent="motion" class="recent fixed-recent"></div>
+      </section>
+
+      <section class="page" data-page="combined" aria-labelledby="combined-title">
+        <div class="section-heading"><p class="kicker">09 / SYNCHRONIZED FOREGROUND</p><h2 id="combined-title">Location + IMU</h2><p id="combined-status">Stopped · reuses Location and IMU probes</p></div>
+        <div class="actions"><button id="combined-start">Start Location + IMU</button><button id="combined-stop">Stop Location + IMU</button><button id="combined-marker">Add Combined Marker</button><button id="combined-export">Export Combined JSON</button><button data-back>Back to Home</button></div>
+        <dl id="combined-readout" class="live-readout"></dl>
+        <div class="pager"><button id="combined-previous">Previous</button><strong id="combined-page-title">Status · 1/2</strong><button id="combined-next">Next</button></div>
+        <div id="combined-detail" class="results probe-page"></div>
+        <div id="combined-log" class="probe-page" hidden data-recent="combined"></div>
       </section>
     </main>
     <footer><span id="footer-count">0 log entries</span><span>CURRENT SESSION: CAPTURE EVIDENCE</span></footer>

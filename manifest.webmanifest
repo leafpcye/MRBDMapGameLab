@@ -1,7 +1,7 @@
 {
   "name": "MRBD Capability Probe",
   "short_name": "MRBD Probe",
-  "description": "Phase 1A runtime, input, storage, lifecycle, network and log export probe.",
+  "description": "Phase 1A runtime diagnostics and Phase 1B foreground Location and IMU evidence probe.",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",

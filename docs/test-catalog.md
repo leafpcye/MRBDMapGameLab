@@ -1,6 +1,20 @@
-# Phase 1A Test Catalog
+# Phase 1A / 1B Test Catalog
 
 Each run should record the environment, build identity, session/page IDs, and the requested module log. “Success” below means the harness produced observable evidence; it is not a claim of general MRBD support.
+
+## Phase 1B foreground probes
+
+| Test ID | Objective | Preconditions | Operation | Success criteria | Failure criteria | Exported evidence | Environments |
+|---|---|---|---|---|---|---|---|
+| LOC-01 | One-shot foreground position | User gesture available | Select preset; Get One Position | Position or named raw error | No observable result | Location JSON | Desktop precheck, iPhone, MRBD |
+| LOC-02 | Watch/session statistics | Permission outcome known | Watch; stationary; marker; stop | Samples/errors and clean stop | Freeze or unbounded UI | Records, summary, markers | Desktop precheck, iPhone, MRBD |
+| LOC-03 | Diagnostic flags | Thresholds visible | Short foreground walk | Raw and flagged distance retained | Raw data discarded | Options, thresholds, records | Desktop precheck, MRBD |
+| IMU-01 | Orientation events | Explicit permission button | Request; rotate/tilt; marker | Samples or explicit absence/error | Silent failure | Orientation entries | Desktop simulation, iPhone, MRBD |
+| IMU-02 | Motion events | Explicit permission button | Stationary/move/walk | Raw/emitted counts visible | Uncontrolled rendering | Motion entries/stats | Desktop simulation, iPhone, MRBD |
+| IMU-03 | UI/log sampler | Events available | Repeat at 5/10/20 Hz | Rates/dropped count shown | Claims hardware frequency control | IMU JSON | Desktop simulation, MRBD |
+| COM-01 | Shared timeline | Probes ready | Start; markers; stop | Common context and ages | Cannot stop | Combined JSON | Desktop simulation, MRBD |
+
+## Phase 1A probes
 
 | Test ID | Objective | Preconditions | Operation | Success criteria | Failure criteria | Exported evidence | Environments |
 |---|---|---|---|---|---|---|---|

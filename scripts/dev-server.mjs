@@ -65,7 +65,7 @@ const server = http.createServer(async (request, response) => {
 });
 
 server.listen(port, host, () => {
-  console.log(`MRBD Phase 1A probe running at http://localhost:${port}`);
+  console.log(`MRBD capability probe running at http://localhost:${port}`);
   console.log(`Serving: ${root}`);
   if (mount !== "/") console.log(`Project path: http://localhost:${port}${mount}`);
   console.log("Press Ctrl+C to stop.");
