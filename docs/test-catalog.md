@@ -14,6 +14,7 @@ Each run should record the environment, build identity, session/page IDs, and th
 | IMU-03 | UI/log sampler | Events available | Repeat at 5/10/20 Hz | Rates/dropped count shown | Claims hardware frequency control | IMU JSON | Desktop simulation, MRBD |
 | COM-01 | Shared timeline | Probes ready | Start; markers; stop | Common context and ages | Cannot stop | Combined JSON | Desktop simulation, MRBD |
 | GEO-DIAG-01 | Distinguish trusted input from Geolocation callback | Version 0.2.1; Location Request page | Focus Quick Test; trusted Enter once | Request ID shows trusted input, handler entry, call issued, and terminal/waiting state | Any stage remains unobservable | Full JSON + one-screen transcription | Desktop harness, MRBD |
+| GEO-PARITY-01 | Compare automatic startup `watchPosition` with the confirmed manual path | Version 0.2.2; direct parity-page URL; foreground | Open the independent Web App and wait up to 35 seconds without input | Page shows issued call plus success or an unmodified standard error callback | API missing, synchronous exception, or no callback after the observation window; retain the exact state | One-screen transcription and result template; no exact coordinates | Desktop precheck, MRBD |
 | NET-DIAG-01 | Separate Runtime network state from live fetch | Network page open | Run timestamped same-origin live fetch | Both dimensions and interpretation are shown | `navigator.onLine` treated as sole conclusion | Network module entries | Desktop, MRBD |
 
 ## Phase 1A probes

@@ -1,4 +1,4 @@
-# MRBD Capability Matrix — Phase 1A Evidence and Phase 1B Test Readiness
+# MRBD Capability Matrix — Phase 1A Evidence and Phase 1B.2 Test Readiness
 
 “Present” means an API object was observed, not that an operation works. Phase 1A MRBD claims below come only from the user-observed third device session. Location and IMU remain pending real-device test.
 
@@ -22,9 +22,10 @@
 | Lifecycle | Web standard | Trace/checkpoint tests | Passed | Not tested | New document identity after app-home reopen | Partially observed | Does not isolate middle pinch |
 | Middle pinch application lifecycle | Runtime-specific | Cannot precheck | Not applicable | Not tested | Inconclusive | Pending isolated MRBD test | System menu opening is confirmed; document behavior is not |
 | `navigator.geolocation` object | Official capability documented; operation still requires evidence | Presence + injected adapter | Present in desktop browser | Not tested | Present | Object confirmed / operation inconclusive | Object presence is not success |
-| First MRBD Geolocation request | Official capability documented | Trusted-trigger harness | Desktop site can prompt and return coordinates | Not tested | `PERMISSION_DENIED` without visible prompt | Inconclusive | Meta AI iPhone permission was Always |
-| Second MRBD Geolocation request | Official capability documented | Request state machine tests | Implemented for test | Not tested | No observable response with old instrumentation | Inconclusive | Cannot distinguish activation, call, waiting, rejection, or callback failure |
-| Trusted Enter direct-call quick test | App diagnostic | Injected trusted-event tests | Passed | Not tested | Not tested | Next validation | Version 0.2.1 calls API in trusted keydown stack |
+| First MRBD Geolocation request | Official capability documented | Trusted-trigger harness | Desktop site can prompt and return coordinates | Not tested | `PERMISSION_DENIED` without visible prompt | Observed failure | Meta AI iPhone permission was Always; deleting and re-adding the Web App did not change the result |
+| Trusted Enter direct-call quick test | App diagnostic | Injected trusted-event tests | Passed | Not tested | Trusted Enter, `userActivation.isActive`, handler entry, API call and standard error callback confirmed; returned `PERMISSION_DENIED` / `user denied Geolocation` | Diagnostic path confirmed; location access denied | No visible website permission prompt |
+| Native Meta Map position | Meta native app behavior | Not applicable | Not applicable | Not tested | Native Map displays current position | Observed on MRBD | Confirms phone/native location path, not the third-party Web Runtime permission bridge |
+| Automatic startup `watchPosition` parity | Web Geolocation API | Self-contained source/build/runtime harness | Standard browser behavior only; not MRBD evidence | Not tested | Not tested | Pending MRBD real-device test | DOMContentLoaded; high accuracy; no Permissions query, user activation, `getCurrentPosition`, map SDK, or existing Location module |
 | Location diagnostic flags | App behavior | Haversine/threshold tests | Implemented for test | Not tested | Not tested | Implemented for test / MRBD result pending | Raw values retained |
 | `navigator.onLine` | Web standard | Compared with live fetch | Instrumented | Not tested | Offline was observed during one concurrent WhatsApp failure; later online | Not reliable alone | Actual MRBD network-channel outage was observed once |
 | Same-origin live fetch | Web standard | Timestamped `no-store` fetch | Implemented for test | Not tested | Not tested with revised probe | Pending revised probe | Separates Runtime report from fetch evidence |

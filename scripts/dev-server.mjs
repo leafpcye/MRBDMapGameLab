@@ -65,9 +65,10 @@ const server = http.createServer(async (request, response) => {
 });
 
 server.listen(port, host, () => {
-  console.log(`MRBD capability probe running at http://localhost:${port}`);
+  const listeningPort = server.address().port;
+  console.log(`MRBD capability probe running at http://localhost:${listeningPort}`);
   console.log(`Serving: ${root}`);
-  if (mount !== "/") console.log(`Project path: http://localhost:${port}${mount}`);
+  if (mount !== "/") console.log(`Project path: http://localhost:${listeningPort}${mount}`);
   console.log("Press Ctrl+C to stop.");
 });
 

@@ -1,0 +1,386 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#050807">
+  <title>MRBD Geo Parity</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --background: #050807;
+      --text: #f3fff7;
+      --muted: #a7b8ad;
+      --accent: #64ff9b;
+      --warning: #ffd166;
+      --danger: #ff7b72;
+    }
+    * { box-sizing: border-box; }
+    html, body { margin: 0; width: 100%; min-height: 100%; background: var(--background); }
+    body {
+      color: var(--text);
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+      font-size: 16px;
+      line-height: 1.2;
+    }
+    main {
+      width: min(100%, 600px);
+      min-height: min(100svh, 600px);
+      margin: 0 auto;
+      padding: 14px 18px 12px;
+      display: grid;
+      grid-template-rows: auto auto 1fr auto;
+      gap: 8px;
+    }
+    header {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      gap: 12px;
+      border-bottom: 2px solid var(--accent);
+      padding-bottom: 7px;
+    }
+    h1 { margin: 0; color: var(--accent); font-size: 24px; letter-spacing: .04em; }
+    .version { color: var(--muted); font-size: 13px; white-space: nowrap; }
+    .primary {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 5px 12px;
+      padding-bottom: 7px;
+      border-bottom: 1px solid #314239;
+    }
+    .metric, .row { min-width: 0; }
+    .label { display: block; color: var(--muted); font-size: 12px; text-transform: uppercase; }
+    .value { display: block; color: var(--text); font-weight: 700; overflow-wrap: anywhere; }
+    #state, #call { color: var(--warning); }
+    .evidence {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 0 18px;
+      align-content: start;
+      min-height: 0;
+    }
+    .group { border-bottom: 1px solid #24332b; padding: 4px 0 5px; }
+    .group-title {
+      margin: 0 0 3px;
+      color: var(--accent);
+      font-size: 12px;
+      letter-spacing: .1em;
+      text-transform: uppercase;
+    }
+    .row {
+      display: grid;
+      grid-template-columns: minmax(110px, 1fr) minmax(0, 1.2fr);
+      gap: 8px;
+      padding: 2px 0;
+    }
+    .row .label { font-size: 13px; text-transform: none; }
+    .row .value { text-align: right; font-size: 14px; }
+    #error-message { color: var(--danger); }
+    footer {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      color: var(--muted);
+      border-top: 1px solid #314239;
+      padding-top: 6px;
+      font-size: 12px;
+    }
+    @media (max-width: 460px) {
+      body { font-size: 14px; }
+      main { padding: 10px 12px 8px; gap: 6px; }
+      h1 { font-size: 20px; }
+      .primary { grid-template-columns: repeat(2, 1fr); }
+      .evidence { gap: 0 10px; }
+      .row { grid-template-columns: 1fr; gap: 0; }
+      .row .value { text-align: left; }
+    }
+    @media (max-height: 540px) {
+      main { padding-top: 8px; gap: 4px; }
+      .group { padding: 2px 0; }
+      .row { padding: 1px 0; }
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <header>
+      <h1>MRBD GEO PARITY</h1>
+      <div class="version">geo-parity-v1 · Project 0.2.2</div>
+    </header>
+
+    <section class="primary" aria-label="Runtime status">
+      <div class="metric"><span class="label">API</span><span class="value" id="api">checking</span></div>
+      <div class="metric"><span class="label">Secure</span><span class="value" id="secure">—</span></div>
+      <div class="metric"><span class="label">Network</span><span class="value" id="network">—</span></div>
+      <div class="metric"><span class="label">SW controller</span><span class="value" id="sw-controller">—</span></div>
+      <div class="metric"><span class="label">Call</span><span class="value" id="call">not-started</span></div>
+      <div class="metric"><span class="label">State</span><span class="value" id="state">starting</span></div>
+      <div class="metric"><span class="label">Callbacks</span><span class="value" id="callbacks">0</span></div>
+      <div class="metric"><span class="label">Elapsed</span><span class="value" id="elapsed">0 ms</span></div>
+    </section>
+
+    <section class="evidence" aria-label="Geolocation evidence">
+      <div>
+        <div class="group">
+          <h2 class="group-title">Timing</h2>
+          <div class="row"><span class="label">First callback</span><span class="value" id="first-callback">— ms</span></div>
+          <div class="row"><span class="label">Latest callback</span><span class="value" id="latest-callback">—</span></div>
+        </div>
+        <div class="group">
+          <h2 class="group-title">Result presence</h2>
+          <div class="row"><span class="label">Latitude</span><span class="value" id="latitude-present">no</span></div>
+          <div class="row"><span class="label">Longitude</span><span class="value" id="longitude-present">no</span></div>
+          <div class="row"><span class="label">Accuracy</span><span class="value" id="accuracy">— m</span></div>
+          <div class="row"><span class="label">Speed</span><span class="value" id="speed">unavailable</span></div>
+          <div class="row"><span class="label">Heading</span><span class="value" id="heading">unavailable</span></div>
+          <div class="row"><span class="label">Altitude</span><span class="value" id="altitude">unavailable</span></div>
+        </div>
+      </div>
+      <div>
+        <div class="group">
+          <h2 class="group-title">Counts</h2>
+          <div class="row"><span class="label">Success</span><span class="value" id="success-count">0</span></div>
+          <div class="row"><span class="label">Error</span><span class="value" id="error-count">0</span></div>
+        </div>
+        <div class="group">
+          <h2 class="group-title">Error</h2>
+          <div class="row"><span class="label">Code</span><span class="value" id="error-code">—</span></div>
+          <div class="row"><span class="label">Name</span><span class="value" id="error-name">—</span></div>
+          <div class="row"><span class="label">Message</span><span class="value" id="error-message">—</span></div>
+        </div>
+        <div class="group">
+          <h2 class="group-title">Previous</h2>
+          <div class="row"><span class="label">Previous result</span><span class="value" id="previous-result">none</span></div>
+        </div>
+      </div>
+    </section>
+
+    <footer>
+      <span>Auto watch · no prompt preflight</span>
+      <span id="page-loaded">Loaded —</span>
+    </footer>
+  </main>
+
+  <script>
+    "use strict";
+
+    const PAGE_VERSION = "geo-parity-v1";
+    const STORAGE_KEY = "mrbdGeoParity.lastResult";
+    const state = {
+      pageLoadedAt: new Date().toISOString(),
+      watchStartedAt: null,
+      watchStartedPerformanceMs: null,
+      firstCallbackAt: null,
+      firstCallbackPerformanceMs: null,
+      latestCallbackAt: null,
+      callbackCount: 0,
+      successCount: 0,
+      errorCount: 0,
+      synchronousException: null,
+      watchId: null
+    };
+
+    const element = (id) => document.getElementById(id);
+    const show = (id, value) => { element(id).textContent = String(value); };
+    const localTime = (iso) => iso ? new Date(iso).toLocaleTimeString() : "—";
+
+    function errorName(code) {
+      if (code === 1) return "PERMISSION_DENIED";
+      if (code === 2) return "POSITION_UNAVAILABLE";
+      if (code === 3) return "TIMEOUT";
+      return "unknown";
+    }
+
+    function nullableState(value, sourceAvailable = true) {
+      if (!sourceAvailable || value === undefined) return "unavailable";
+      return value === null ? "null" : "present";
+    }
+
+    function callbackTiming(nowPerformanceMs) {
+      if (state.firstCallbackPerformanceMs === null) {
+        state.firstCallbackPerformanceMs = nowPerformanceMs;
+        state.firstCallbackAt = new Date().toISOString();
+      }
+      return Math.max(0, Math.round(state.firstCallbackPerformanceMs - state.watchStartedPerformanceMs));
+    }
+
+    function readPreviousResult() {
+      try {
+        const raw = localStorage.getItem(STORAGE_KEY);
+        if (!raw) return null;
+        const parsed = JSON.parse(raw);
+        return parsed && typeof parsed === "object" ? parsed : null;
+      } catch (error) {
+        return null;
+      }
+    }
+
+    function saveSummary(summary) {
+      try {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(summary));
+      } catch (error) {
+        // Persistence is optional evidence; runtime diagnostics continue on failure.
+      }
+    }
+
+    function summaryBase(resultState) {
+      return {
+        pageVersion: PAGE_VERSION,
+        testedAt: state.latestCallbackAt || new Date().toISOString(),
+        state: resultState,
+        callbackCount: state.callbackCount,
+        successCount: state.successCount,
+        errorCount: state.errorCount,
+        timeToFirstCallbackMs: state.firstCallbackPerformanceMs === null
+          ? null
+          : Math.max(0, Math.round(state.firstCallbackPerformanceMs - state.watchStartedPerformanceMs)),
+        latitudePresent: false,
+        longitudePresent: false,
+        accuracy: null,
+        speedState: "unavailable",
+        headingState: "unavailable",
+        altitudeState: "unavailable",
+        errorCode: null,
+        errorName: null,
+        errorMessage: null,
+        serviceWorkerControlled: Boolean(navigator.serviceWorker && navigator.serviceWorker.controller),
+        userAgent: navigator.userAgent || "",
+        platform: navigator.platform || ""
+      };
+    }
+
+    function recordCallback() {
+      const nowPerformanceMs = performance.now();
+      state.callbackCount += 1;
+      state.latestCallbackAt = new Date().toISOString();
+      const firstMs = callbackTiming(nowPerformanceMs);
+      show("callbacks", state.callbackCount);
+      show("first-callback", `${firstMs} ms`);
+      show("latest-callback", localTime(state.latestCallbackAt));
+    }
+
+    function successCallback(position) {
+      recordCallback();
+      state.successCount += 1;
+      const coords = position && position.coords;
+      const latitudePresent = Boolean(coords && Number.isFinite(coords.latitude));
+      const longitudePresent = Boolean(coords && Number.isFinite(coords.longitude));
+      const speedState = nullableState(coords && coords.speed, Boolean(coords));
+      const headingState = nullableState(coords && coords.heading, Boolean(coords));
+      const altitudeState = nullableState(coords && coords.altitude, Boolean(coords));
+      const accuracy = coords && Number.isFinite(coords.accuracy) ? coords.accuracy : null;
+
+      show("state", "success");
+      show("success-count", state.successCount);
+      show("latitude-present", latitudePresent ? "yes" : "no");
+      show("longitude-present", longitudePresent ? "yes" : "no");
+      show("accuracy", accuracy === null ? "— m" : `${accuracy} m`);
+      show("speed", speedState);
+      show("heading", headingState);
+      show("altitude", altitudeState);
+      show("error-code", "—");
+      show("error-name", "—");
+      show("error-message", "—");
+
+      saveSummary({
+        ...summaryBase("success"),
+        latitudePresent,
+        longitudePresent,
+        accuracy,
+        speedState,
+        headingState,
+        altitudeState
+      });
+    }
+
+    function errorCallback(error) {
+      recordCallback();
+      state.errorCount += 1;
+      const code = Number.isFinite(error && error.code) ? error.code : null;
+      const name = errorName(code);
+      const message = error && typeof error.message === "string" ? error.message : "";
+
+      show("state", "error");
+      show("error-count", state.errorCount);
+      show("error-code", code === null ? "—" : code);
+      show("error-name", name);
+      show("error-message", message || "(empty)");
+
+      saveSummary({
+        ...summaryBase("error"),
+        errorCode: code,
+        errorName: name,
+        errorMessage: message
+      });
+    }
+
+    function startWatch() {
+      if (state.watchStartedAt !== null) return;
+      const geolocationPresent = Boolean(navigator.geolocation && navigator.geolocation.watchPosition);
+      show("api", geolocationPresent ? "present" : "missing");
+      show("secure", String(window.isSecureContext));
+      show("network", `navigator.onLine ${String(navigator.onLine)}`);
+      show("sw-controller", navigator.serviceWorker && navigator.serviceWorker.controller ? "yes" : "no");
+      show("page-loaded", `Loaded ${localTime(state.pageLoadedAt)}`);
+      const previous = readPreviousResult();
+      show("previous-result", previous && previous.state ? previous.state : "none");
+
+      if (!geolocationPresent) {
+        show("state", "error");
+        show("call", "not-started");
+        show("error-name", "API_MISSING");
+        show("error-message", "navigator.geolocation.watchPosition is missing");
+        return;
+      }
+
+      state.watchStartedAt = new Date().toISOString();
+      state.watchStartedPerformanceMs = performance.now();
+      show("state", "starting");
+      try {
+        state.watchId = navigator.geolocation.watchPosition(
+          successCallback,
+          errorCallback,
+          {
+            enableHighAccuracy: true,
+            maximumAge: 5000,
+            timeout: 30000
+          }
+        );
+        show("call", "issued");
+        if (state.callbackCount === 0) show("state", "watching");
+      } catch (error) {
+        state.synchronousException = {
+          name: error && error.name ? String(error.name) : "Error",
+          message: error && error.message ? String(error.message) : String(error)
+        };
+        show("call", "synchronous-error");
+        show("state", "synchronous-error");
+        show("error-name", state.synchronousException.name);
+        show("error-message", state.synchronousException.message);
+        saveSummary({
+          ...summaryBase("synchronous-error"),
+          errorName: state.synchronousException.name,
+          errorMessage: state.synchronousException.message
+        });
+      }
+    }
+
+    window.addEventListener("DOMContentLoaded", () => {
+      startWatch();
+    });
+
+    window.addEventListener("pagehide", () => {
+      if (state.watchId !== null && navigator.geolocation && navigator.geolocation.clearWatch) {
+        navigator.geolocation.clearWatch(state.watchId);
+        state.watchId = null;
+      }
+    });
+
+    setInterval(() => {
+      if (state.watchStartedPerformanceMs === null) return;
+      show("elapsed", `${Math.max(0, Math.round(performance.now() - state.watchStartedPerformanceMs))} ms`);
+    }, 1000);
+  </script>
+</body>
+</html>
