@@ -8,7 +8,7 @@ Verified Phase 1A URL:
 https://leafpcye.github.io/MRBDMapGameLab/
 ```
 
-The public static deployment was verified on **2026-07-29** at version `0.1.0`, commit `f241cb0`. The user subsequently completed an initial MRBD session; its facts are recorded in the result document. This longer plan is retained for coverage, while version `0.1.1` uses the focused [Phase 1A.1 retest](mrbd-phase-1a-1-retest.md). Do not guess device versions or unrecorded event fields.
+The public static deployment was verified on **2026-07-29** at version `0.1.0`, commit `f241cb0`. The user subsequently completed two MRBD sessions; their facts are recorded in separate result documents. This longer plan is retained for coverage, while version `0.1.2` uses the focused [Phase 1A.2 retest](mrbd-phase-1a-2-retest.md). Do not guess device versions or unrecorded event fields.
 
 Use [results/phase-1a-first-device-session-template.md](results/phase-1a-first-device-session-template.md) while testing. Export after important steps when possible.
 
@@ -64,10 +64,10 @@ Press **Stop** and preserve Input evidence.
 1. Open Storage.
 2. Enter `phase1a-reopen-test`.
 3. Run the localStorage test.
-4. Record the launch count and displayed value.
+4. Record the Document boot count and displayed value.
 5. Close the Web App normally.
 6. Reopen it.
-7. Check the value and launch count again.
+7. Check the value and Document boot count again.
 8. Export the available log.
 
 This first session tests only normal close/reopen. Full MRBD restart, IndexedDB depth testing, and offline cold-start are deferred.

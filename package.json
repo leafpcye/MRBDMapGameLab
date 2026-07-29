@@ -1,6 +1,6 @@
 {
   "name": "mrbd-map-game-lab",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "private": true,
   "type": "module",
   "description": "Phase 1A capability probe for the Meta Ray-Ban Display web runtime.",

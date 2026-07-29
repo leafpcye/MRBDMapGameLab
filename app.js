@@ -2,23 +2,35 @@ import { BUILD_INFO } from "./build-info.js";
 import { createLogger } from "./modules/logger.js";
 import { collectEnvironment, environmentPages } from "./modules/environment.js";
 import { createInputProbe } from "./modules/input.js";
-import { createStorageHelper, errorDetails } from "./modules/storage.js";
+import { createStorageHelper, errorDetails, formatBootTimestamp } from "./modules/storage.js";
 import { installLifecycleProbe } from "./modules/lifecycle.js";
 import { runNetworkProbe } from "./modules/network.js";
 import { snapshotJSON, snapshotCSV, triggerDownload, copyText, shareJSON } from "./modules/export.js";
 import { renderRows, renderRecent, shortId } from "./modules/ui.js";
 import { readLargeTextPreference, shouldUseLargeText, writeLargeTextPreference } from "./modules/preferences.js";
-import { readLifecycleCheckpoint, writeLifecycleCheckpoint, interpretLifecycleEvidence } from "./modules/lifecycle-checkpoint.js";
+import { readLifecycleCheckpoint, writeLifecycleCheckpoint, classifyLifecycleEvidence } from "./modules/lifecycle-checkpoint.js";
+import { getDirectionalNeighbor } from "./modules/navigation.js";
+import { initializeRuntimeContext, getRuntimeContext, checkRuntimeContextConsistency } from "./modules/runtime-context.js";
+import { createLifecycleTrace } from "./modules/lifecycle-trace.js";
 
-const id = (prefix) => `${prefix}-${globalThis.crypto?.randomUUID?.() || `${Date.now()}-${Math.random().toString(16).slice(2)}`}`;
-const pageInstanceId = id("page");
-let sessionId;
+let browserLocalStorage = null;
+let browserSessionStorage = null;
 try {
-  sessionId = sessionStorage.getItem("mrbdProbe.sessionId") || id("session");
-  sessionStorage.setItem("mrbdProbe.sessionId", sessionId);
+  browserLocalStorage = localStorage;
 } catch {
-  sessionId = id("session");
+  // Runtime Context records storage availability without blocking startup.
 }
+try {
+  browserSessionStorage = sessionStorage;
+} catch {
+  // Runtime Context creates an in-memory session ID if sessionStorage is inaccessible.
+}
+
+const runtimeContext = initializeRuntimeContext({
+  localStorage: browserLocalStorage,
+  sessionStorage: browserSessionStorage
+});
+const { pageInstanceId, sessionId } = runtimeContext;
 
 let environmentSnapshot = null;
 const logger = createLogger({
@@ -29,12 +41,6 @@ const logger = createLogger({
   environmentProvider: () => environmentSnapshot || collectEnvironment()
 });
 
-let browserLocalStorage = null;
-try {
-  browserLocalStorage = localStorage;
-} catch {
-  // Individual storage probes record access failures without blocking app startup.
-}
 const largeTextEnabled = shouldUseLargeText({
   storedPreference: readLargeTextPreference(browserLocalStorage),
   width: innerWidth,
@@ -43,17 +49,14 @@ const largeTextEnabled = shouldUseLargeText({
 });
 document.body.classList.toggle("large-text", largeTextEnabled);
 
-let launchState = { launchCount: "unavailable", firstLaunchAt: "unavailable", lastLaunchAt: "unavailable" };
-try {
-  launchState = createStorageHelper(localStorage).recordLaunch();
-  logger.log("storage", "launch-recorded", launchState);
-} catch (error) {
-  logger.log("storage", "launch-record-failed", errorDetails(error));
-}
-
 const previousCheckpointResult = readLifecycleCheckpoint(browserLocalStorage);
 const previousCheckpoint = previousCheckpointResult.checkpoint;
-const pageStartedAt = new Date().toISOString();
+const lifecycleTrace = createLifecycleTrace({
+  storage: browserLocalStorage,
+  runtimeContext
+});
+lifecycleTrace.append("script-start", { visibilityState: document.visibilityState });
+const pageStartedAt = runtimeContext.bootedAt;
 const lifecycleState = {
   lastEvent: "script-start",
   bfcacheEvidence: false,
@@ -76,6 +79,11 @@ const lifecycleProbe = installLifecycleProbe(logger, (update) => {
     lifecycleState.previousVisibility = update.visibilityState;
   }
   Object.assign(lifecycleState, update);
+  lifecycleTrace.append(update.lastEvent, {
+    wallTime: update.eventAt,
+    visibilityState: update.visibilityState,
+    persisted: update.persisted
+  });
   persistLifecycleCheckpoint(update.lastEvent);
   updateLifecycleReadout();
 });
@@ -108,7 +116,9 @@ logger.log("ui", "large-text-initialized", {
   greatwhiteDetected: /Greatwhite/i.test(navigator.userAgent),
   storedPreference: readLargeTextPreference(browserLocalStorage)
 });
+logger.log("app", "runtime-context-initialized", runtimeContext);
 if (previousCheckpointResult.error) logger.log("lifecycle", "checkpoint-read-failed", previousCheckpointResult.error);
+if (lifecycleTrace.getReadError()) logger.log("lifecycle", "trace-read-failed", lifecycleTrace.getReadError());
 
 function currentPage() {
   return $(".page.active")?.dataset.page || "home";
@@ -128,7 +138,8 @@ $$("[data-open]").forEach((button) => button.addEventListener("click", () => ope
 $$("[data-back]").forEach((button) => button.addEventListener("click", () => openPage("home")));
 
 // App-level keyboard routing is intentionally skipped on Input so raw Escape and
-// direction events reach the probe without navigation side effects.
+// direction events reach the probe without navigation side effects. Home uses
+// rendered rectangles; in a visual single column Left/Right therefore do not move.
 document.addEventListener("keydown", (event) => {
   if (currentPage() === "input") return;
   if (event.key === "Escape" && currentPage() !== "home") {
@@ -140,9 +151,17 @@ document.addEventListener("keydown", (event) => {
   const focusable = $$(`.page.active button:not([disabled]), .page.active input:not([disabled])`);
   const index = focusable.indexOf(document.activeElement);
   if (index < 0) return;
-  const columns = currentPage() === "home" ? 2 : 1;
-  const delta = event.key === "ArrowLeft" ? -1 : event.key === "ArrowRight" ? 1 : event.key === "ArrowUp" ? -columns : columns;
-  const next = index + delta;
+  let next = index;
+  if (currentPage() === "home") {
+    next = getDirectionalNeighbor({
+      key: event.key,
+      currentIndex: index,
+      rects: focusable.map((element) => element.getBoundingClientRect())
+    });
+  } else {
+    const delta = event.key === "ArrowLeft" || event.key === "ArrowUp" ? -1 : 1;
+    next = Math.max(0, Math.min(focusable.length - 1, index + delta));
+  }
   if (next >= 0 && next < focusable.length) {
     event.preventDefault();
     focusable[next].focus();
@@ -206,25 +225,37 @@ $("#copy-environment").addEventListener("click", async () => {
 
 for (let index = 1; index <= 12; index += 1) {
   const button = document.createElement("button");
+  button.id = `long-list-item-${index}`;
   button.dataset.testControl = `long-${index}`;
   button.textContent = `Long item ${String(index).padStart(2, "0")}`;
   $("#long-list").append(button);
 }
-const inputUi = { active: false, eventCount: 0, mode: "observe-only", recentEvents: [] };
+const inputUi = {
+  active: false,
+  eventCount: 0,
+  mode: "observe-only",
+  recentEvents: [],
+  metrics: {
+    rawKeyboardEventCount: 0,
+    completedPairCount: 0,
+    unmatchedKeydowns: 0,
+    unmatchedKeyups: 0
+  }
+};
 const inputProbe = createInputProbe({
   logger,
   onUpdate(update) {
     Object.assign(inputUi, update);
-    $("#input-status").textContent = `${inputUi.active ? "Running" : "Stopped"} · ${inputUi.eventCount} events observed`;
+    $("#input-status").textContent = `${inputUi.active ? "Running" : "Stopped"} · ${inputUi.metrics.rawKeyboardEventCount} raw keyboard events`;
     $("#input-count").textContent = String(inputUi.eventCount);
+    $("#raw-keyboard-count").textContent = String(inputUi.metrics.rawKeyboardEventCount);
+    $("#completed-pair-count").textContent = String(inputUi.metrics.completedPairCount);
+    $("#unmatched-keydown-count").textContent = String(inputUi.metrics.unmatchedKeydowns);
+    $("#unmatched-keyup-count").textContent = String(inputUi.metrics.unmatchedKeyups);
     if (update.focus) $("#input-focus").textContent = update.focus;
     if (update.selection) $("#input-selection").textContent = update.selection;
-    if (update.pairText) $("#input-pair").textContent = update.pairText;
-    if (update.lastEvent) {
-      $("#last-event-type").textContent = update.lastEvent.type;
-      $("#last-event-key").textContent = update.lastEvent.key;
-      $("#last-event-code").textContent = update.lastEvent.code;
-    }
+    if (update.lastKeydown) renderKeyEventSummary("keydown", update.lastKeydown);
+    if (update.lastKeyup) renderKeyEventSummary("keyup", update.lastKeyup);
     if (update.pairSummary) renderPairSummary(update.pairSummary);
     if (update.recentEvents) renderInputEvents(update.recentEvents);
   }
@@ -249,14 +280,29 @@ function renderPairSummary(summary) {
     const row = document.createElement("div");
     row.className = "pair-row";
     const key = document.createElement("strong");
-    const down = document.createElement("span");
-    const up = document.createElement("span");
+    const counts = document.createElement("span");
+    const pairs = document.createElement("span");
+    const interval = document.createElement("span");
+    const unmatched = document.createElement("span");
     key.textContent = item.key;
-    down.textContent = item.down ? "down ✓" : "down —";
-    up.textContent = item.up ? "up ✓" : "up —";
-    row.append(key, down, up);
+    counts.textContent = `down ${item.downCount} · up ${item.upCount}`;
+    pairs.textContent = `pairs ${item.completedPairCount}`;
+    interval.textContent = item.latestDurationMs === null
+      ? "interval —"
+      : `latest interval ${item.latestDurationMs} ms`;
+    unmatched.textContent = `unmatched d${item.unmatchedKeydowns}/u${item.unmatchedKeyups}`;
+    row.append(key, counts, pairs, interval, unmatched);
     container.append(row);
   });
+}
+
+function renderKeyEventSummary(kind, event) {
+  $(`#last-${kind}-type`).textContent = event.type;
+  $(`#last-${kind}-key`).textContent = event.key;
+  $(`#last-${kind}-code`).textContent = event.code;
+  $(`#last-${kind}-timestamp`).textContent = `${event.timestamp} ms`;
+  $(`#last-${kind}-focus`).textContent = event.focus;
+  $(`#last-${kind}-seq`).textContent = `#${event.seq}`;
 }
 
 function renderInputEvents(events) {
@@ -268,7 +314,7 @@ function renderInputEvents(events) {
     container.append(empty);
     return;
   }
-  events.slice().reverse().forEach((event) => {
+  events.slice(-4).reverse().forEach((event) => {
     const row = document.createElement("div");
     row.className = "input-event-row";
     const sequence = document.createElement("span");
@@ -281,7 +327,22 @@ function renderInputEvents(events) {
     container.append(row);
   });
 }
-renderPairSummary(["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight", "Enter", "Escape"].map((key) => ({ key, down: false, up: false })));
+renderPairSummary(["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight", "Enter", "Escape"].map((key) => ({
+  key,
+  downCount: 0,
+  upCount: 0,
+  completedPairCount: 0,
+  latestDurationMs: null,
+  unmatchedKeydowns: 0,
+  unmatchedKeyups: 0
+})));
+
+$("#raw-events-toggle").addEventListener("click", () => {
+  const expanded = $("#raw-events-toggle").getAttribute("aria-expanded") !== "true";
+  $("#raw-events-toggle").setAttribute("aria-expanded", String(expanded));
+  $("#raw-events-toggle").textContent = `Raw Events: ${expanded ? "Expanded" : "Collapsed"}`;
+  $("#input-event-list").hidden = !expanded;
+});
 
 async function runStorageAction(label, action) {
   $("#storage-status").textContent = `${label} running…`;
@@ -306,10 +367,15 @@ function updateStorageSummary() {
   } catch (error) {
     testValue = `${errorDetails(error).name}: ${errorDetails(error).message}`;
   }
-  $("#storage-launch-count").textContent = String(launchState.launchCount);
+  const previousBoot = formatBootTimestamp(runtimeContext.previousBootAt);
+  $("#storage-boot-count").textContent = String(runtimeContext.documentBootCount);
   $("#storage-current-value").textContent = testValue;
-  $("#storage-previous-launch").textContent = launchState.previousLaunchAt || "(first recorded launch)";
-  $("#storage-page-instance").textContent = pageInstanceId;
+  $("#storage-previous-boot-local").textContent = previousBoot.local;
+  $("#storage-previous-boot-utc").textContent = previousBoot.utc;
+  $("#storage-time-zone").textContent = previousBoot.timeZone;
+  $("#storage-page-instance").textContent = runtimeContext.pageInstanceId;
+  const consistency = runtimeConsistency();
+  $("#storage-context-consistency").textContent = consistency.status;
 }
 
 $("#test-local").addEventListener("click", () => runStorageAction("localStorage-test", () => {
@@ -323,7 +389,7 @@ $("#test-local").addEventListener("click", () => runStorageAction("localStorage-
   const json = helper.getJSON("jsonTest");
   helper.set("temporary", "delete-me");
   helper.remove("temporary");
-  return { accessible: true, written: value, read, updated, json, deleted: helper.get("temporary") === null, ...launchState };
+  return { accessible: true, written: value, read, updated, json, deleted: helper.get("temporary") === null, runtimeContext };
 }));
 $("#test-session").addEventListener("click", () => runStorageAction("sessionStorage-test", () => {
   const helper = createStorageHelper(sessionStorage);
@@ -454,11 +520,13 @@ async function unregisterServiceWorker() {
 
 function updateLifecycleReadout() {
   const navigation = performance.getEntriesByType?.("navigation")?.[0];
+  const consistency = runtimeConsistency();
   const rows = [
     ["Visibility", document.visibilityState],
-    ["Page instance", pageInstanceId],
-    ["Session", sessionId],
-    ["Launch count", String(launchState.launchCount)],
+    ["Page instance", runtimeContext.pageInstanceId],
+    ["Session", runtimeContext.sessionId],
+    ["Document boot count", String(runtimeContext.documentBootCount)],
+    ["Runtime context consistency", consistency.status],
     ["Elapsed since script", `${(performance.now() - lifecycleProbe.startedAt).toFixed(1)} ms`],
     ["Navigation evidence", navigation?.type || "unavailable"],
     ["BFCache evidence", lifecycleState.bfcacheEvidence ? "pageshow.persisted=true observed" : "Not observed"],
@@ -477,32 +545,48 @@ function updateLifecycleReadout() {
     container.append(wrap);
   });
 
-  const interpretation = interpretLifecycleEvidence({
-    currentPageInstanceId: pageInstanceId,
+  const interpretation = classifyLifecycleEvidence({
+    currentContext: runtimeContext,
     previousCheckpoint,
-    lastEvent: lifecycleState.lastEvent,
-    pageshowPersisted: lifecycleState.pageshowPersisted,
-    visibilityRestored: lifecycleState.visibilityRestored,
-    navigationType: navigation?.type || "unavailable"
+    traceEntries: lifecycleTrace.getEntries(),
+    contextConsistent: consistency.status === "OK"
   });
   $("#lifecycle-interpretation").textContent = interpretation;
   renderDiagnosticRows([
-    ["Current page instance", pageInstanceId],
-    ["Current session", sessionId],
-    ["Launch count", String(launchState.launchCount)],
+    ["Current page instance", runtimeContext.pageInstanceId],
+    ["Current session", runtimeContext.sessionId],
+    ["Document boot count", String(runtimeContext.documentBootCount)],
+    ["Runtime context consistency", consistency.status],
     ["Visibility", document.visibilityState],
     ["Last lifecycle event", lifecycleState.lastEvent],
     ["Last pagehide", lifecycleState.lastPagehideAt || "Not observed"],
     ["Last pageshow", lifecycleState.lastPageshowAt || "Not observed"],
     ["Last visibility change", lifecycleState.lastVisibilityChangeAt || "Not observed"],
     ["pageshow.persisted", lifecycleState.pageshowPersisted ? "true observed" : "Not observed"],
-    ["Page started", pageStartedAt],
+    ["Document booted at", pageStartedAt],
     ["Previous instance", previousCheckpoint?.pageInstanceId || "No checkpoint"],
+    ["Previous document boot count", previousCheckpoint?.documentBootCount ?? "No checkpoint"],
     ["Previous last event", previousCheckpoint?.lastLifecycleEvent || "No checkpoint"],
     ["Previous state", previousCheckpoint?.visibilityState || "No checkpoint"],
     ["Previous saved at", previousCheckpoint?.savedAt || "No checkpoint"],
     ["Navigation type", navigation?.type || "unavailable"]
   ]);
+  renderLifecycleTrace(lifecycleTrace.getEntries());
+}
+
+let contextErrorLogged = false;
+function runtimeConsistency() {
+  const displayedIds = [
+    getRuntimeContext(),
+    $("#storage-page-instance")?.textContent,
+    $("#lifecycle-current-page-instance")?.textContent
+  ].filter((value) => value && value !== "—");
+  const result = checkRuntimeContextConsistency(runtimeContext, displayedIds);
+  if (result.status === "ERROR" && !contextErrorLogged) {
+    contextErrorLogged = true;
+    logger.log("app", "runtime-context-consistency-error", result);
+  }
+  return result;
 }
 
 function renderDiagnosticRows(rows) {
@@ -515,8 +599,27 @@ function renderDiagnosticRows(rows) {
     const dd = document.createElement("dd");
     dt.textContent = term;
     dd.textContent = value;
+    if (term === "Current page instance") dd.id = "lifecycle-current-page-instance";
     wrap.append(dt, dd);
     container.append(wrap);
+  });
+}
+
+function renderLifecycleTrace(entries) {
+  const container = $("#lifecycle-trace");
+  if (!container) return;
+  container.replaceChildren();
+  entries.slice(-16).reverse().forEach((entry) => {
+    const row = document.createElement("div");
+    row.className = "trace-row";
+    const event = document.createElement("strong");
+    const identity = document.createElement("span");
+    const timing = document.createElement("small");
+    event.textContent = `#${entry.sequence} ${entry.event}`;
+    identity.textContent = `boot ${entry.documentBootCount} · ${shortId(entry.pageInstanceId)} · ${entry.visibilityState} · persisted ${entry.persisted === null ? "(n/a)" : entry.persisted}`;
+    timing.textContent = `${entry.localTime} · ${entry.wallTime}`;
+    row.append(event, identity, timing);
+    container.append(row);
   });
 }
 
@@ -526,6 +629,8 @@ function persistLifecycleCheckpoint(lastLifecycleEvent) {
     return writeLifecycleCheckpoint(browserLocalStorage, {
       pageInstanceId,
       sessionId,
+      documentBootCount: runtimeContext.documentBootCount,
+      bootedAt: runtimeContext.bootedAt,
       lastLifecycleEvent,
       visibilityState: document.visibilityState,
       savedAt: new Date().toISOString()
@@ -539,6 +644,7 @@ function persistLifecycleCheckpoint(lastLifecycleEvent) {
 $("#mark-middle-pinch").addEventListener("click", () => {
   const marker = "before-middle-pinch";
   logger.log("lifecycle", "marker", { note: marker, intent: "MRBD system-menu lifecycle diagnostic" });
+  lifecycleTrace.mark(marker);
   lifecycleState.lastEvent = marker;
   const checkpoint = persistLifecycleCheckpoint(marker);
   $("#lifecycle-status").textContent = checkpoint
@@ -550,7 +656,9 @@ $("#mark-middle-pinch").addEventListener("click", () => {
 $("#add-marker").addEventListener("click", () => {
   const note = $("#marker-note").value.trim();
   logger.log("lifecycle", "marker", { note: note || "(no note)" });
+  lifecycleTrace.mark("marker");
   $("#lifecycle-status").textContent = `Marker recorded: ${note || "(no note)"}`;
+  updateLifecycleReadout();
 });
 
 window.addEventListener("online", updateNetworkStatus);
@@ -626,7 +734,7 @@ function flatten(value, prefix = "", result = {}) {
   return result;
 }
 
-logger.log("app", "initialized", { buildInfo: BUILD_INFO, pageInstanceId, sessionId, launchState });
+logger.log("app", "initialized", { buildInfo: BUILD_INFO, runtimeContext });
 persistLifecycleCheckpoint("script-start");
 refreshRecent();
 updateStorageSummary();

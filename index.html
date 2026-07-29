@@ -57,34 +57,64 @@
         <div class="actions"><button id="start-input">Start</button><button id="stop-input">Stop</button><button data-clear="input">Clear Module Log</button><button data-back>Back</button></div>
         <fieldset class="mode-selector"><legend>Input Mode</legend><button data-input-mode="observe-only" aria-pressed="true">Observe Only</button><button data-input-mode="browser-default" aria-pressed="false">Browser Default</button><button data-input-mode="app-navigation" aria-pressed="false">App Navigation</button></fieldset>
         <p id="input-mode-help" class="mode-help">Observe Only records raw runtime behavior without preventDefault or app focus routing.</p>
-        <dl class="last-event-readout">
-          <div><dt>LAST EVENT TYPE</dt><dd id="last-event-type">—</dd></div>
-          <div><dt>KEY</dt><dd id="last-event-key">—</dd></div>
-          <div><dt>CODE</dt><dd id="last-event-code">—</dd></div>
-          <div><dt>MATCHED PAIR</dt><dd id="input-pair">No matching keyup observed</dd></div>
-          <div><dt>FOCUSED ELEMENT</dt><dd id="input-focus">none</dd></div>
-        </dl>
-        <dl class="live-readout">
-          <div><dt>SELECTED</dt><dd id="input-selection">none</dd></div><div><dt>EVENTS</dt><dd id="input-count">0</dd></div>
-        </dl>
+        <div class="key-event-summaries">
+          <section class="key-event-panel" aria-labelledby="last-keydown-heading">
+            <h3 id="last-keydown-heading">Last Keydown</h3>
+            <dl>
+              <div><dt>TYPE</dt><dd id="last-keydown-type">Not observed</dd></div>
+              <div><dt>KEY</dt><dd id="last-keydown-key">Not observed</dd></div>
+              <div><dt>CODE</dt><dd id="last-keydown-code">Not observed</dd></div>
+              <div><dt>TIMESTAMP</dt><dd id="last-keydown-timestamp">Not observed</dd></div>
+              <div><dt>FOCUS</dt><dd id="last-keydown-focus">Not observed</dd></div>
+              <div><dt>SEQUENCE</dt><dd id="last-keydown-seq">Not observed</dd></div>
+            </dl>
+          </section>
+          <section class="key-event-panel" aria-labelledby="last-keyup-heading">
+            <h3 id="last-keyup-heading">Last Keyup</h3>
+            <dl>
+              <div><dt>TYPE</dt><dd id="last-keyup-type">Not observed</dd></div>
+              <div><dt>KEY</dt><dd id="last-keyup-key">Not observed</dd></div>
+              <div><dt>CODE</dt><dd id="last-keyup-code">Not observed</dd></div>
+              <div><dt>TIMESTAMP</dt><dd id="last-keyup-timestamp">Not observed</dd></div>
+              <div><dt>FOCUS</dt><dd id="last-keyup-focus">Not observed</dd></div>
+              <div><dt>SEQUENCE</dt><dd id="last-keyup-seq">Not observed</dd></div>
+            </dl>
+          </section>
+        </div>
         <div class="pair-panel"><h3>Pair Summary</h3><div id="pair-summary"></div></div>
-        <div class="input-events-panel"><h3>Recent Raw Events</h3><div id="input-event-list"><p>No input events observed.</p></div></div>
         <div id="input-controls" class="input-lab">
-          <fieldset><legend>A · Single Button</legend><button data-test-control="single">Activate test button</button></fieldset>
-          <fieldset class="vertical"><legend>B · Vertical List</legend><button data-test-control="vertical-1">Option 1</button><button data-test-control="vertical-2">Option 2</button><button data-test-control="vertical-3">Option 3</button><button data-test-control="vertical-4">Option 4</button><button data-test-control="vertical-5">Option 5</button></fieldset>
-          <fieldset class="horizontal"><legend>C · Horizontal Selector</legend><button data-test-control="spell-a">Spell A</button><button data-test-control="spell-b">Spell B</button><button data-test-control="spell-c">Spell C</button></fieldset>
+          <fieldset><legend>A · Single Button</legend><button id="single-button-test" data-test-control="single">Activate test button</button></fieldset>
+          <fieldset class="vertical"><legend>B · Vertical List</legend><button id="vertical-option-1" data-test-control="vertical-1">Option 1</button><button id="vertical-option-2" data-test-control="vertical-2">Option 2</button><button id="vertical-option-3" data-test-control="vertical-3">Option 3</button><button id="vertical-option-4" data-test-control="vertical-4">Option 4</button><button id="vertical-option-5" data-test-control="vertical-5">Option 5</button></fieldset>
+          <fieldset class="horizontal"><legend>C · Horizontal Selector</legend><button id="horizontal-spell-a" data-test-control="spell-a">Spell A</button><button id="horizontal-spell-b" data-test-control="spell-b">Spell B</button><button id="horizontal-spell-c" data-test-control="spell-c">Spell C</button></fieldset>
           <fieldset class="long-list"><legend>D · Long List</legend><div id="long-list"></div></fieldset>
         </div>
+        <section class="input-events-panel" aria-labelledby="raw-events-heading">
+          <h3 id="raw-events-heading">Recent Raw Keyboard Events</h3>
+          <button id="raw-events-toggle" aria-expanded="false">Raw Events: Collapsed</button>
+          <div id="input-event-list" hidden><p>No input events observed.</p></div>
+        </section>
+        <dl class="input-counters live-readout">
+          <div><dt>RAW KEYBOARD EVENTS</dt><dd id="raw-keyboard-count">0</dd></div>
+          <div><dt>COMPLETED KEY PAIRS</dt><dd id="completed-pair-count">0</dd></div>
+          <div><dt>UNMATCHED KEYDOWNS</dt><dd id="unmatched-keydown-count">0</dd></div>
+          <div><dt>UNMATCHED KEYUPS</dt><dd id="unmatched-keyup-count">0</dd></div>
+          <div><dt>ALL CAPTURED INPUT EVENTS</dt><dd id="input-count">0</dd></div>
+          <div><dt>CURRENT FOCUS</dt><dd id="input-focus">none</dd></div>
+          <div><dt>EVENT TARGET</dt><dd id="input-selection">none</dd></div>
+        </dl>
         <div data-recent="input" class="recent"></div>
       </section>
 
       <section class="page" data-page="storage" aria-labelledby="storage-title">
         <div class="section-heading"><p class="kicker">03 / PERSISTENCE</p><h2 id="storage-title">Storage</h2><p id="storage-status">Ready for explicit tests</p></div>
         <dl class="storage-summary">
-          <div><dt>LAUNCH COUNT</dt><dd id="storage-launch-count">—</dd></div>
+          <div><dt>DOCUMENT BOOT COUNT</dt><dd id="storage-boot-count">—</dd></div>
           <div><dt>CURRENT TEST VALUE</dt><dd id="storage-current-value">—</dd></div>
-          <div><dt>PREVIOUS LAUNCH</dt><dd id="storage-previous-launch">—</dd></div>
           <div><dt>PAGE INSTANCE</dt><dd id="storage-page-instance">—</dd></div>
+          <div><dt>RUNTIME CONTEXT CONSISTENCY</dt><dd id="storage-context-consistency">—</dd></div>
+          <div><dt>PREVIOUS DOCUMENT BOOT — LOCAL</dt><dd id="storage-previous-boot-local">—</dd></div>
+          <div><dt>PREVIOUS DOCUMENT BOOT — UTC</dt><dd id="storage-previous-boot-utc">—</dd></div>
+          <div><dt>DEVICE TIME ZONE</dt><dd id="storage-time-zone">—</dd></div>
         </dl>
         <label class="value-field">Test value <input id="storage-value" maxlength="120" value="phase-1a"></label>
         <div class="actions"><button id="test-local">Test localStorage</button><button id="test-session">Test sessionStorage</button><button id="test-idb">Test IndexedDB</button><button id="test-cache">Test Cache Storage</button><button id="register-sw">Register Service Worker</button><button id="update-sw">Check SW Update</button><button id="unregister-sw">Unregister SW</button><button data-clear="storage">Clear Module Log</button><button data-back>Back</button></div>
@@ -101,6 +131,10 @@
           <dl id="lifecycle-diagnostic" class="diagnostic-grid"></dl>
           <div class="actions"><button id="mark-middle-pinch">Mark Before Middle Pinch</button></div>
         </div>
+        <section class="trace-panel" aria-labelledby="lifecycle-trace-heading">
+          <h3 id="lifecycle-trace-heading">Lifecycle Trace Since Marker</h3>
+          <div id="lifecycle-trace" aria-live="polite"></div>
+        </section>
         <dl id="lifecycle-readout" class="live-readout"></dl>
         <label class="value-field">Marker note <input id="marker-note" maxlength="160" placeholder="Before glasses screen off"></label>
         <div class="actions"><button id="add-marker">Lifecycle Marker</button><button data-clear="lifecycle">Clear Module Log</button><button data-back>Back</button></div>

@@ -23,7 +23,9 @@ const APP_SHELL = [
   appUrl("modules/preferences.js"),
   appUrl("modules/navigation.js"),
   appUrl("modules/input-state.js"),
-  appUrl("modules/lifecycle-checkpoint.js")
+  appUrl("modules/lifecycle-checkpoint.js"),
+  appUrl("modules/runtime-context.js"),
+  appUrl("modules/lifecycle-trace.js")
 ];
 
 self.addEventListener("install", (event) => {

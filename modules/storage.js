@@ -29,21 +29,28 @@ export function createStorageHelper(storage, prefix = "mrbdProbe.") {
         wrapped.cause = error;
         throw wrapped;
       }
-    },
-    recordLaunch(at = new Date().toISOString()) {
-      const rawCount = storage.getItem(key("launchCount"));
-      const parsed = Number.parseInt(rawCount ?? "0", 10);
-      const launchCount = Number.isFinite(parsed) && parsed >= 0 ? parsed + 1 : 1;
-      const firstLaunchAt = storage.getItem(key("firstLaunchAt")) || at;
-      const previousLaunchAt = storage.getItem(key("lastLaunchAt"));
-      storage.setItem(key("launchCount"), String(launchCount));
-      storage.setItem(key("firstLaunchAt"), firstLaunchAt);
-      storage.setItem(key("lastLaunchAt"), at);
-      return { launchCount, firstLaunchAt, previousLaunchAt, lastLaunchAt: at };
     }
   };
 }
 
 export function errorDetails(error) {
   return { name: error?.name || "Error", message: error?.message || String(error) };
+}
+
+export function formatBootTimestamp(value, {
+  localeFormatter = (date) => date.toLocaleString(),
+  timeZoneResolver = () => Intl.DateTimeFormat().resolvedOptions().timeZone
+} = {}) {
+  if (!value) {
+    return { local: "(first recorded document boot)", utc: "(none)", timeZone: timeZoneResolver() };
+  }
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    return { local: "(invalid timestamp)", utc: String(value), timeZone: timeZoneResolver() };
+  }
+  return {
+    local: localeFormatter(date),
+    utc: date.toISOString(),
+    timeZone: timeZoneResolver()
+  };
 }

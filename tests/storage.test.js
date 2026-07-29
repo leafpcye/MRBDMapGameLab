@@ -25,17 +25,6 @@ test("storage helper writes and reads JSON", () => {
   assert.deepEqual(helper.getJSON("json"), { ok: true });
 });
 
-test("launch count preserves first launch and updates last launch", () => {
-  const helper = createStorageHelper(memoryStorage());
-  const first = helper.recordLaunch("2026-07-28T00:00:00.000Z");
-  const second = helper.recordLaunch("2026-07-28T01:00:00.000Z");
-  assert.equal(first.launchCount, 1);
-  assert.equal(second.launchCount, 2);
-  assert.equal(second.firstLaunchAt, first.firstLaunchAt);
-  assert.equal(second.previousLaunchAt, first.lastLaunchAt);
-  assert.equal(second.lastLaunchAt, "2026-07-28T01:00:00.000Z");
-});
-
 test("damaged JSON produces a named error", () => {
   const adapter = memoryStorage();
   const helper = createStorageHelper(adapter);
