@@ -1,10 +1,10 @@
 # MRBD Phase 1B Foreground Test — 15–20 Minutes
 
-Use [https://leafpcye.github.io/MRBDMapGameLab/](https://leafpcye.github.io/MRBDMapGameLab/) and confirm version `0.2.3`. Complete the isolated Phase 1B.2 Geo Parity and Phase 1B.4 Permissions Bootstrap tests before this longer test. Keep the Web App visible. Do not lock the phone, background the app, or infer capability from API presence.
+Use [https://leafpcye.github.io/MRBDMapGameLab/](https://leafpcye.github.io/MRBDMapGameLab/) and confirm version `0.2.4`. Complete the isolated Phase 1B.2 Geo Parity and Phase 1B.4 Permissions Bootstrap tests before this longer test. Keep the Web App visible. Do not lock the phone, background the app, or infer capability from API presence.
 
 ## Test 0. Environment — 1 minute
 
-Record version `0.2.3`, commit, MRBD version, Meta AI App version, iPhone/iOS model/version, Neural Band, network, test time, weather, and a general location type such as “open park.” Do not record an exact home address in public Git documentation.
+Record version `0.2.4`, commit, MRBD version, Meta AI App version, iPhone/iOS model/version, Neural Band, network, test time, weather, and a general location type such as “open park.” Do not record an exact home address in public Git documentation.
 
 Open Environment, run the probe, and record page ID, session ID, document boot count, and API presence for geolocation, DeviceMotionEvent, and DeviceOrientationEvent.
 

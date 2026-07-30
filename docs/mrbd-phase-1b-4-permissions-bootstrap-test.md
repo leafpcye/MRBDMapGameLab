@@ -8,11 +8,12 @@ The webpage cannot create that menu item. A missing menu is a valid experimental
 
 ## Implementation basis and evidence boundary
 
-Version `0.2.3` combines:
+Version `0.2.4` combines:
 
 - the installed Meta Wearables Webapp plugin v125.0.0 recommendation to include `<meta name="mrbd-web-app-capable" content="yes">`;
 - its standard Device Orientation, Motion, and Geolocation API patterns;
 - the public DamammApps sequence: trusted Start, sensor permission methods when present, then low-accuracy `getCurrentPosition`;
+- a separate, trusted, post-menu low-accuracy `getCurrentPosition` using identical options without repeating Sensors;
 - the explicit installed-root deep-link pattern.
 
 The plugin says the host handles Geolocation permission, but prior MRBDMapGameLab real-device results returned `PERMISSION_DENIED` without a prompt. Treat the plugin as an implementation pattern, not proof of Runtime behavior. DamammApps itself worked without the MRBD meta tag, so that tag is also not assumed necessary or sufficient.
@@ -21,7 +22,7 @@ The Probe does not call `navigator.permissions.query`, `watchPosition`, micropho
 
 ## Preconditions
 
-1. Wait for GitHub Pages version `0.2.3` to deploy.
+1. Wait for GitHub Pages version `0.2.4` to deploy.
 2. Open `https://leafpcye.github.io/MRBDMapGameLab/build-info.js` and record the deployed commit.
 3. From the phone, install or re-add the explicit root URL using:
 
@@ -29,7 +30,7 @@ The Probe does not call `navigator.permissions.query`, `watchPosition`, micropho
 fb-viewapp://web_app_deep_link?appName=MRBDPermissionProbe&appUrl=https%3A%2F%2Fleafpcye.github.io%2FMRBDMapGameLab%2Findex.html
 ```
 
-4. Confirm the Web App header shows version `0.2.3` and the expected commit.
+4. Confirm the Web App header shows version `0.2.4` and the expected commit.
 5. Do not open Location, Motion, or Combined before completing this test.
 6. Do not request Microphone.
 
@@ -78,9 +79,25 @@ fb-viewapp://web_app_deep_link?appName=MRBDPermissionProbe&appUrl=https%3A%2F%2F
    - Sensors row and state;
    - Microphone row and state, if shown;
    - any other row.
-5. Resume and export the full JSON log.
+5. Set only the intended rows to Enabled and record the exact changes.
+6. Resume without reloading the page.
 
-## Test D — persistence
+## Test D — identical post-menu Location verification
+
+1. Confirm the initial Location result remains visible.
+2. Focus **Verify Location After Menu Change**.
+3. Use Neural Band Enter exactly once.
+4. Confirm the Probe does not request Orientation or Motion again.
+5. Record:
+   - post-menu Location state;
+   - callback time;
+   - code and code name;
+   - complete message;
+   - fixed options.
+6. Confirm the options remain `enableHighAccuracy:false`, `timeout:3000`, and `maximumAge:60000`.
+7. Export the full JSON log.
+
+## Test E — persistence
 
 1. Use Restart, then inspect the Universal Menu again.
 2. Close to the MRBD app home and reopen; inspect again.
@@ -91,6 +108,9 @@ fb-viewapp://web_app_deep_link?appName=MRBDPermissionProbe&appUrl=https%3A%2F%2F
 
 - Permissions present before request: the test cannot attribute its creation to this run.
 - Permissions absent before and present after: strong evidence that the Runtime registered at least one requested category.
+- The initial Location result occurred before the user could change the newly created menu; never describe it as a post-enable result.
+- Compare the initial and post-menu calls only when their options are identical.
+- Menu Enabled plus post-menu code 1 is evidence that visible host state did not grant this standard call in that run.
 - Standard callback success without menu: operation and menu exposure are separate behaviors.
 - `PERMISSION_DENIED` without prompt and no menu: the existing origin may remain in a host-level denied state; do not claim the meta tag failed.
 - Sensors rows appearing does not prove IMU events work.

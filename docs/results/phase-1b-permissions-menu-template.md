@@ -3,7 +3,7 @@
 ## Identity
 
 - Date/time:
-- Project version: `0.2.3`
+- Project version: `0.2.4`
 - Deployed commit:
 - Installed app name: `MRBDPermissionProbe`
 - Installed URL: `https://leafpcye.github.io/MRBDMapGameLab/index.html`
@@ -45,6 +45,19 @@
 - Sensors row/state:
 - Microphone row/state:
 - Other rows:
+
+## Identical post-menu Location verification
+
+- Verification input/event:
+- Trusted:
+- Sensors requested again: No
+- Options: `enableHighAccuracy:false`, `timeout:3000`, `maximumAge:60000`
+- State:
+- First callback elapsed:
+- Error code/name:
+- Complete error message:
+- Initial result still visible: Yes / No
+- Exact coordinates recorded: No
 
 ## Persistence boundaries
 

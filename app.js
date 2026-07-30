@@ -192,12 +192,19 @@ function renderPermissionBootstrap(snapshot) {
   $("#permissions-callback-time").textContent = snapshot.location.firstCallbackElapsedMs === null
     ? "—"
     : `${Math.round(snapshot.location.firstCallbackElapsedMs)} ms`;
+  $("#permissions-post-menu-location").textContent = snapshot.postMenuLocation.state;
+  $("#permissions-post-menu-callback-time").textContent = snapshot.postMenuLocation.firstCallbackElapsedMs === null
+    ? "—"
+    : `${Math.round(snapshot.postMenuLocation.firstCallbackElapsedMs)} ms`;
   $("#permissions-bootstrap-start").disabled = snapshot.started;
+  $("#permissions-post-menu-verify").disabled =
+    snapshot.state !== "complete" || snapshot.postMenuLocation.started;
   renderRows($("#permissions-output"), Object.entries(flatten({
     input: snapshot.input,
     environment: snapshot.environment,
     sensors: snapshot.sensors,
-    location: snapshot.location
+    initialLocation: snapshot.location,
+    postMenuLocation: snapshot.postMenuLocation
   })));
 
   if (snapshot.state === "not-started") {
@@ -212,9 +219,20 @@ function renderPermissionBootstrap(snapshot) {
     $("#permissions-status").textContent = "Location request issued · waiting for the first callback";
     return;
   }
-  $("#permissions-status").textContent = `Complete · Location ${snapshot.location.state}`;
+  if (snapshot.postMenuLocation.state === "issued") {
+    $("#permissions-status").textContent = "Post-menu Location verification issued · waiting for callback";
+    return;
+  }
+  if (snapshot.postMenuLocation.started) {
+    $("#permissions-status").textContent =
+      `Verification complete · initial ${snapshot.location.state} · post-menu ${snapshot.postMenuLocation.state}`;
+    $("#permissions-instruction").textContent =
+      "Record both Location results and export the log. The post-menu result does not overwrite the initial Bootstrap evidence.";
+    return;
+  }
+  $("#permissions-status").textContent = `Bootstrap complete · initial Location ${snapshot.location.state}`;
   $("#permissions-instruction").textContent =
-    "Stay on this root page. Use middle pinch, then record whether Universal Menu now contains Permissions and which categories appear.";
+    "Use middle pinch, enable the Runtime permissions, Resume, then press Verify Location After Menu Change once.";
 }
 
 const permissionBootstrap = createPermissionBootstrap({
@@ -231,6 +249,15 @@ permissionsStartButton.addEventListener("keydown", (event) => {
 });
 permissionsStartButton.addEventListener("click", (event) => {
   permissionBootstrap.startFromEvent(event);
+});
+const permissionsPostMenuButton = $("#permissions-post-menu-verify");
+permissionsPostMenuButton.addEventListener("keydown", (event) => {
+  if (event.key !== "Enter" || event.repeat) return;
+  event.preventDefault();
+  permissionBootstrap.verifyLocationFromEvent(event);
+});
+permissionsPostMenuButton.addEventListener("click", (event) => {
+  permissionBootstrap.verifyLocationFromEvent(event);
 });
 renderPermissionBootstrap(permissionBootstrap.snapshot());
 

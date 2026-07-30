@@ -37,6 +37,19 @@ function userActivationSnapshot(globalObject, event) {
   };
 }
 
+function createLocationState() {
+  return {
+    state: "not-called",
+    input: null,
+    issuedAt: null,
+    callbackAt: null,
+    firstCallbackElapsedMs: null,
+    result: null,
+    error: null,
+    options: { ...PERMISSION_BOOTSTRAP_GEOLOCATION_OPTIONS }
+  };
+}
+
 export function createPermissionBootstrap({
   globalObject = globalThis,
   geolocation = globalObject.navigator?.geolocation,
@@ -47,6 +60,8 @@ export function createPermissionBootstrap({
 } = {}) {
   let started = false;
   let startedAtMs = null;
+  let postMenuStarted = false;
+  let postMenuStartedAtMs = null;
   const state = {
     state: "not-started",
     started: false,
@@ -58,13 +73,12 @@ export function createPermissionBootstrap({
     },
     location: {
       apiPresent: Boolean(geolocation?.getCurrentPosition),
-      state: "not-called",
-      issuedAt: null,
-      callbackAt: null,
-      firstCallbackElapsedMs: null,
-      result: null,
-      error: null,
-      options: { ...PERMISSION_BOOTSTRAP_GEOLOCATION_OPTIONS }
+      ...createLocationState()
+    },
+    postMenuLocation: {
+      started: false,
+      apiPresent: Boolean(geolocation?.getCurrentPosition),
+      ...createLocationState()
     }
   };
 
@@ -113,45 +127,50 @@ export function createPermissionBootstrap({
     }
   }
 
-  function issueGeolocation() {
+  function issueGeolocation({
+    target,
+    eventPrefix = "geolocation",
+    requestStartedAtMs,
+    controlsBootstrapState = false
+  }) {
     if (!geolocation?.getCurrentPosition) {
-      state.state = "complete";
-      state.location.state = "api-missing";
-      emit("geolocation-error", { state: "api-missing" });
+      if (controlsBootstrapState) state.state = "complete";
+      target.state = "api-missing";
+      emit(`${eventPrefix}-error`, { state: "api-missing" });
       return;
     }
 
-    state.state = "waiting";
-    state.location.state = "issued";
-    state.location.issuedAt = wallTime();
-    emit("geolocation-issued", { options: state.location.options });
+    if (controlsBootstrapState) state.state = "waiting";
+    target.state = "issued";
+    target.issuedAt = wallTime();
+    emit(`${eventPrefix}-issued`, { options: target.options });
 
     const success = (position) => {
       const coords = position?.coords || {};
-      state.state = "complete";
-      state.location.state = "success";
-      state.location.callbackAt = wallTime();
-      state.location.firstCallbackElapsedMs = Math.max(0, monotonicNow() - startedAtMs);
-      state.location.result = {
+      if (controlsBootstrapState) state.state = "complete";
+      target.state = "success";
+      target.callbackAt = wallTime();
+      target.firstCallbackElapsedMs = Math.max(0, monotonicNow() - requestStartedAtMs);
+      target.result = {
         latitudePresent: Number.isFinite(coords.latitude),
         longitudePresent: Number.isFinite(coords.longitude),
         accuracy: Number.isFinite(coords.accuracy) ? coords.accuracy : null
       };
-      emit("geolocation-success", {
-        firstCallbackElapsedMs: state.location.firstCallbackElapsedMs,
-        result: state.location.result
+      emit(`${eventPrefix}-success`, {
+        firstCallbackElapsedMs: target.firstCallbackElapsedMs,
+        result: target.result
       });
     };
 
     const failure = (error) => {
-      state.state = "complete";
-      state.location.state = "error";
-      state.location.callbackAt = wallTime();
-      state.location.firstCallbackElapsedMs = Math.max(0, monotonicNow() - startedAtMs);
-      state.location.error = geolocationError(error);
-      emit("geolocation-error", {
-        firstCallbackElapsedMs: state.location.firstCallbackElapsedMs,
-        error: state.location.error
+      if (controlsBootstrapState) state.state = "complete";
+      target.state = "error";
+      target.callbackAt = wallTime();
+      target.firstCallbackElapsedMs = Math.max(0, monotonicNow() - requestStartedAtMs);
+      target.error = geolocationError(error);
+      emit(`${eventPrefix}-error`, {
+        firstCallbackElapsedMs: target.firstCallbackElapsedMs,
+        error: target.error
       });
     };
 
@@ -163,13 +182,13 @@ export function createPermissionBootstrap({
       );
     } catch (error) {
       const details = errorDetails(error);
-      state.state = "complete";
-      state.location.state = "synchronous-error";
-      state.location.error = details;
-      state.location.callbackAt = wallTime();
-      state.location.firstCallbackElapsedMs = Math.max(0, monotonicNow() - startedAtMs);
-      emit("geolocation-synchronous-error", {
-        firstCallbackElapsedMs: state.location.firstCallbackElapsedMs,
+      if (controlsBootstrapState) state.state = "complete";
+      target.state = "synchronous-error";
+      target.error = details;
+      target.callbackAt = wallTime();
+      target.firstCallbackElapsedMs = Math.max(0, monotonicNow() - requestStartedAtMs);
+      emit(`${eventPrefix}-synchronous-error`, {
+        firstCallbackElapsedMs: target.firstCallbackElapsedMs,
         error: details
       });
     }
@@ -189,7 +208,11 @@ export function createPermissionBootstrap({
     // When neither sensor exposes requestPermission, runSequence reaches this
     // call without yielding, so Location remains in the trusted activation
     // stack, matching the public DamammApps bootstrap.
-    issueGeolocation();
+    issueGeolocation({
+      target: state.location,
+      requestStartedAtMs: startedAtMs,
+      controlsBootstrapState: true
+    });
   }
 
   function startFromEvent(event = {}) {
@@ -242,9 +265,66 @@ export function createPermissionBootstrap({
     return { accepted: true, reason: null, completion };
   }
 
+  function verifyLocationFromEvent(event = {}) {
+    if (!started) {
+      emit("post-menu-verification-blocked", {
+        reason: "bootstrap-not-started",
+        inputType: event.type || "unknown"
+      });
+      return { accepted: false, reason: "bootstrap-not-started", snapshot: snapshot() };
+    }
+    if (state.state !== "complete") {
+      emit("post-menu-verification-blocked", {
+        reason: "bootstrap-not-complete",
+        bootstrapState: state.state,
+        inputType: event.type || "unknown"
+      });
+      return { accepted: false, reason: "bootstrap-not-complete", snapshot: snapshot() };
+    }
+    if (postMenuStarted) {
+      emit("post-menu-duplicate-start-blocked", {
+        inputType: event.type || "unknown",
+        key: event.key || null,
+        trusted: Boolean(event.isTrusted)
+      });
+      return { accepted: false, reason: "already-started", snapshot: snapshot() };
+    }
+    if (event.isTrusted !== true) {
+      emit("post-menu-start-rejected", {
+        reason: "untrusted-event",
+        inputType: event.type || "unknown",
+        key: event.key || null
+      });
+      return { accepted: false, reason: "untrusted-event", snapshot: snapshot() };
+    }
+
+    postMenuStarted = true;
+    postMenuStartedAtMs = monotonicNow();
+    state.postMenuLocation.started = true;
+    state.postMenuLocation.input = {
+      type: event.type || "unknown",
+      key: event.key || null,
+      trusted: true,
+      userActivation: userActivationSnapshot(globalObject, event)
+    };
+    emit("post-menu-verification-start-entered", {
+      input: state.postMenuLocation.input,
+      initialLocationState: state.location.state,
+      options: state.postMenuLocation.options
+    });
+    issueGeolocation({
+      target: state.postMenuLocation,
+      eventPrefix: "post-menu-geolocation",
+      requestStartedAtMs: postMenuStartedAtMs
+    });
+    return { accepted: true, reason: null, snapshot: snapshot() };
+  }
+
   return {
     startFromEvent,
+    verifyLocationFromEvent,
     snapshot,
-    isStarted: () => started
+    isStarted: () => started,
+    isPostMenuVerificationStarted: () => postMenuStarted
   };
 }

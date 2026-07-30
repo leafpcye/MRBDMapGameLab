@@ -219,6 +219,96 @@ test("success snapshot stores presence and accuracy but never exact coordinates"
   assert.equal(JSON.stringify(snapshot).includes("6.123456"), false);
 });
 
+test("post-menu verification is blocked until the initial Bootstrap is complete", () => {
+  const value = createHarness();
+  const beforeStart = value.bootstrap.verifyLocationFromEvent(trustedEnter);
+  assert.equal(beforeStart.accepted, false);
+  assert.equal(beforeStart.reason, "bootstrap-not-started");
+
+  value.bootstrap.startFromEvent(trustedEnter);
+  const whileWaiting = value.bootstrap.verifyLocationFromEvent(trustedClick);
+  assert.equal(whileWaiting.accepted, false);
+  assert.equal(whileWaiting.reason, "bootstrap-not-complete");
+  assert.equal(value.calls.length, 1);
+});
+
+test("post-menu verification repeats only low-accuracy Location and preserves the initial result", () => {
+  let orientationRequests = 0;
+  let motionRequests = 0;
+  function Orientation() {}
+  Orientation.requestPermission = async () => {
+    orientationRequests += 1;
+    return "granted";
+  };
+  function Motion() {}
+  Motion.requestPermission = async () => {
+    motionRequests += 1;
+    return "granted";
+  };
+  const value = createHarness({ orientation: Orientation, motion: Motion });
+  const initial = value.bootstrap.startFromEvent(trustedEnter);
+  return initial.completion.then(() => {
+    value.advance(25);
+    value.calls[0].error({ code: 1, message: "initial denied" });
+    const verification = value.bootstrap.verifyLocationFromEvent(trustedClick);
+    assert.equal(verification.accepted, true);
+    assert.equal(value.calls.length, 2);
+    assert.deepEqual(value.calls[1].options, PERMISSION_BOOTSTRAP_GEOLOCATION_OPTIONS);
+    assert.equal(orientationRequests, 1);
+    assert.equal(motionRequests, 1);
+
+    value.advance(40);
+    value.calls[1].success({
+      coords: { latitude: 48.123456, longitude: 6.123456, accuracy: 18 }
+    });
+    const snapshot = value.bootstrap.snapshot();
+    assert.equal(snapshot.location.error.message, "initial denied");
+    assert.equal(snapshot.postMenuLocation.state, "success");
+    assert.deepEqual(snapshot.postMenuLocation.result, {
+      latitudePresent: true,
+      longitudePresent: true,
+      accuracy: 18
+    });
+    assert.equal(JSON.stringify(snapshot).includes("48.123456"), false);
+    assert.ok(value.logs.some((entry) => entry.event === "post-menu-geolocation-issued"));
+    assert.ok(value.logs.some((entry) => entry.event === "post-menu-geolocation-success"));
+  });
+});
+
+test("post-menu verification requires trusted input and runs only once", () => {
+  const value = createHarness();
+  value.bootstrap.startFromEvent(trustedEnter);
+  value.calls[0].error({ code: 1, message: "initial denied" });
+
+  const untrusted = value.bootstrap.verifyLocationFromEvent({ type: "click", isTrusted: false });
+  assert.equal(untrusted.accepted, false);
+  assert.equal(untrusted.reason, "untrusted-event");
+
+  const accepted = value.bootstrap.verifyLocationFromEvent(trustedEnter);
+  assert.equal(accepted.accepted, true);
+  const duplicate = value.bootstrap.verifyLocationFromEvent(trustedClick);
+  assert.equal(duplicate.accepted, false);
+  assert.equal(duplicate.reason, "already-started");
+  assert.equal(value.calls.length, 2);
+  assert.ok(value.logs.some((entry) => entry.event === "post-menu-duplicate-start-blocked"));
+});
+
+test("post-menu Geolocation errors retain code, message, and callback timing", () => {
+  const value = createHarness();
+  value.bootstrap.startFromEvent(trustedEnter);
+  value.calls[0].error({ code: 1, message: "initial denied" });
+  value.bootstrap.verifyLocationFromEvent(trustedClick);
+  value.advance(2876);
+  value.calls[1].error({ code: 1, message: "User denied Geolocation" });
+  const snapshot = value.bootstrap.snapshot();
+  assert.equal(snapshot.postMenuLocation.state, "error");
+  assert.equal(snapshot.postMenuLocation.error.code, 1);
+  assert.equal(snapshot.postMenuLocation.error.codeName, "PERMISSION_DENIED");
+  assert.equal(snapshot.postMenuLocation.error.message, "User denied Geolocation");
+  assert.equal(snapshot.postMenuLocation.firstCallbackElapsedMs, 2876);
+  assert.ok(value.logs.some((entry) => entry.event === "post-menu-geolocation-error"));
+});
+
 test("source constraints preserve the isolated permission experiment", async () => {
   const [moduleSource, appSource, html] = await Promise.all([
     readFile(new URL("../modules/permissions-bootstrap.js", import.meta.url), "utf8"),
@@ -231,5 +321,6 @@ test("source constraints preserve the isolated permission experiment", async () 
   assert.match(html, /<meta name="viewport" content="width=600,height=600/);
   const firstHomeButton = html.match(/<nav class="probe-menu[\s\S]*?<button ([^>]+)>/);
   assert.match(firstHomeButton?.[1] || "", /data-open="permissions"/);
+  assert.match(html, /id="permissions-post-menu-verify" disabled/);
   assert.equal((appSource.match(/refreshLocationPermission\(\);/g) || []).length, 0);
 });
