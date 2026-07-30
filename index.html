@@ -2,7 +2,9 @@
 <html lang="en">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="viewport" content="width=600,height=600,initial-scale=1,viewport-fit=cover">
+  <meta name="description" content="MRBD runtime, permission, input, storage, lifecycle, location and sensor capability probe.">
+  <meta name="mrbd-web-app-capable" content="yes">
   <meta name="theme-color" content="#050807">
   <meta name="color-scheme" content="dark">
   <link rel="manifest" href="./manifest.webmanifest">
@@ -34,6 +36,7 @@
           <p>Desktop checks confirm the harness, not MRBD capability.</p>
         </div>
         <nav class="probe-menu focus-grid" aria-label="Probe modules">
+          <button data-open="permissions"><span>00</span>Permissions<small>Runtime menu bootstrap</small></button>
           <button data-open="environment"><span>01</span>Environment<small>Runtime & API presence</small></button>
           <button data-open="input"><span>02</span>Input<small>Raw events & focus</small></button>
           <button data-open="storage"><span>03</span>Storage<small>Persistence & service worker</small></button>
@@ -44,6 +47,31 @@
           <button data-open="motion"><span>08</span>Motion / Orientation<small>Foreground IMU evidence</small></button>
           <button data-open="combined"><span>09</span>Combined<small>Location + IMU timeline</small></button>
         </nav>
+      </section>
+
+      <section class="page" data-page="permissions" aria-labelledby="permissions-title">
+        <div class="section-heading">
+          <p class="kicker">00 / RUNTIME PERMISSION REGISTRATION</p>
+          <h2 id="permissions-title">Permissions Bootstrap</h2>
+          <p id="permissions-status">Not started · no permission API has been called</p>
+        </div>
+        <dl class="live-readout permissions-readout">
+          <div><dt>BOOTSTRAP</dt><dd id="permissions-state">not-started</dd></div>
+          <div><dt>ORIENTATION</dt><dd id="permissions-orientation">not-called</dd></div>
+          <div><dt>MOTION</dt><dd id="permissions-motion">not-called</dd></div>
+          <div><dt>LOCATION</dt><dd id="permissions-location">not-called</dd></div>
+          <div><dt>FIRST CALLBACK</dt><dd id="permissions-callback-time">—</dd></div>
+        </dl>
+        <div class="actions primary-actions">
+          <button id="permissions-bootstrap-start">Enable Location + Sensors</button>
+          <button data-back>Back to Home</button>
+        </div>
+        <p id="permissions-instruction" class="warning">
+          Run once with Neural Band Enter. This page cannot create the system Permissions menu.
+        </p>
+        <div id="permissions-output" class="results compact-results" aria-live="polite"></div>
+        <div class="actions"><button data-clear="permissions-bootstrap">Clear Module Log</button></div>
+        <div data-recent="permissions-bootstrap" class="recent fixed-recent"></div>
       </section>
 
       <section class="page" data-page="environment" aria-labelledby="environment-title">

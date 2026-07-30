@@ -1,9 +1,9 @@
 {
   "name": "mrbd-map-game-lab",
-  "version": "0.2.2",
+  "version": "0.2.3",
   "private": true,
   "type": "module",
-  "description": "Phase 1A diagnostics plus Phase 1B foreground and isolated Geolocation parity probes for the Meta Ray-Ban Display web runtime.",
+  "description": "MRBD runtime capability, permission-menu bootstrap, foreground sensor and Geolocation probes.",
   "scripts": {
     "build-info": "node scripts/generate-build-info.mjs",
     "build": "node scripts/build-site.mjs",

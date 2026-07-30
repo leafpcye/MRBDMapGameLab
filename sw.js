@@ -29,7 +29,8 @@ const APP_SHELL = [
   appUrl("modules/activation.js"),
   appUrl("modules/runtime-snapshot.js"),
   appUrl("modules/location.js"),
-  appUrl("modules/motion.js")
+  appUrl("modules/motion.js"),
+  appUrl("modules/permissions-bootstrap.js")
 ];
 
 self.addEventListener("install", (event) => {

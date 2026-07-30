@@ -1,7 +1,7 @@
 {
   "name": "MRBD Capability Probe",
   "short_name": "MRBD Probe",
-  "description": "Phase 1A diagnostics plus Phase 1B foreground probes and the isolated Phase 1B.2 Geolocation parity page.",
+  "description": "MRBD runtime capability, permission-menu bootstrap, foreground sensor and Geolocation probes.",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",

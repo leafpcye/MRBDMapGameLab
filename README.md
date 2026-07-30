@@ -1,6 +1,6 @@
 # MRBD Capability Probe
 
-A minimal, repeatable evidence harness for Meta Ray-Ban Display (MRBD) web-runtime investigation. Current Probe version: **0.2.2**. It retains the Phase 1A runtime, input, storage, lifecycle, network, and export probes and adds **Phase 1B foreground-only Location and Motion/Orientation probes**.
+A minimal, repeatable evidence harness for Meta Ray-Ban Display (MRBD) web-runtime investigation. Current Probe version: **0.2.3**. It retains the Phase 1A runtime, input, storage, lifecycle, network, and export probes and adds **Phase 1B foreground-only Location and Motion/Orientation probes**.
 
 This repository does **not** contain background tracking, Audio, speech, AI, maps, routes, POI, game content, accounts, a backend, remote logging, or a native companion. Phase 1B Audio and all later phases are not implemented.
 
@@ -19,6 +19,8 @@ Phase 1B adds manual foreground Location, DeviceMotion, DeviceOrientation, and a
 Phase 1B.1 addresses an inconclusive MRBD Geolocation attempt. A trusted `Enter` keydown now calls `getCurrentPosition()` directly in the same event stack, while native click remains a separate direct path. Every one-shot request has an ID, explicit state transitions, permission-before/after evidence, activation fields, and a diagnostic watchdog distinct from the standard Geolocation timeout. Location is a five-page instrument panel and no core Phase 1B control uses a native `<select>` popup. Network now reports `navigator.onLine` separately from a timestamped, same-origin `no-store` fetch.
 
 Phase 1B.2 adds the isolated [MRBD Geo Parity page](https://leafpcye.github.io/MRBDMapGameLab/geo-parity.html). It is one self-contained HTML file that starts one high-accuracy `watchPosition()` on `DOMContentLoaded`, without Permissions API preflight, a button, user activation, `getCurrentPosition()`, the existing Location module, maps, or third-party resources. It displays and persists only presence/accuracy/error evidence, never precise latitude or longitude.
+
+Phase 1B.4 adds a root-document **Permissions Bootstrap** Probe based on the installed Meta Wearables Webapp plugin and the public DamammApps comparison. A trusted Enter/click requests Device Orientation and Motion permission when those platform methods exist, then issues one low-accuracy `getCurrentPosition()` with fixed options. The experiment records whether MRBD registers Location/Sensors and subsequently adds its own Permissions item to the Universal Menu. The page cannot create or imitate that system menu, does not request Microphone, and never stores exact coordinates.
 
 ## Local development
 
@@ -69,7 +71,7 @@ See [docs/deployment.md](docs/deployment.md) for activation, verification, rollb
 
 - `index.html`, `styles.css`, `app.js`: 600×600-oriented probe UI and orchestration.
 - `geo-parity.html`: isolated, self-contained startup `watchPosition()` parity experiment.
-- `modules/`: logger, Phase 1A diagnostics, Location calculations/probe, IMU sampling/probe, activation feedback, and Runtime Snapshot helpers.
+- `modules/`: logger, Phase 1A diagnostics, permission bootstrap, Location calculations/probe, IMU sampling/probe, activation feedback, and Runtime Snapshot helpers.
 - `sw.js`, `manifest.webmanifest`: minimal versioned app shell.
 - `scripts/dev-server.mjs`: localhost-only static server with no-store responses and traversal protection.
 - `scripts/generate-build-info.mjs`: reproducible build identity.
@@ -99,4 +101,4 @@ Every structured export includes an Environment snapshot, build version, Git com
 
 Desktop Chrome/Safari and iPhone Safari results are prechecks only. They must never be reported as MRBD Runtime or Neural Band results. User-run findings are recorded separately for the [first session](docs/results/phase-1a-first-device-session-template.md) and [second session](docs/results/phase-1a-1-second-device-session.md). Follow the short [Phase 1A.2 retest](docs/mrbd-phase-1a-2-retest.md) on real hardware and preserve the exported logs.
 
-The next action is the 2–3 minute [Phase 1B.2 Geo Parity test](docs/mrbd-phase-1b-2-geo-parity-test.md). The manual MRBD request is confirmed to reach `PERMISSION_DENIED` without a visible prompt; automatic startup `watchPosition()` remains **Not tested**. Desktop checks do not establish Location capability on MRBD.
+The next action is the controlled [Phase 1B.4 Permissions Bootstrap test](docs/mrbd-phase-1b-4-permissions-bootstrap-test.md). Prior manual and automatic MRBD requests reached `PERMISSION_DENIED` without a visible prompt, while DamamMap prompted on the same device. The new test does not assume the plugin metadata or API call will make the Runtime menu appear. Desktop checks do not establish MRBD permission registration.

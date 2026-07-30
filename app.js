@@ -16,6 +16,7 @@ import { createActivationTracker, flashActivation } from "./modules/activation.j
 import { createRuntimeSnapshot, saveRuntimeSnapshot, readRuntimeSnapshot, compareRuntimeSnapshots } from "./modules/runtime-snapshot.js";
 import { createLocationProbe, LOCATION_PRESETS, DEFAULT_LOCATION_THRESHOLDS } from "./modules/location.js";
 import { createMotionProbe } from "./modules/motion.js";
+import { createPermissionBootstrap } from "./modules/permissions-bootstrap.js";
 
 let browserLocalStorage = null;
 let browserSessionStorage = null;
@@ -182,6 +183,56 @@ function refreshRecent() {
   $("#footer-count").textContent = `${entries.length} log ${entries.length === 1 ? "entry" : "entries"}`;
 }
 logger.subscribe(refreshRecent);
+
+function renderPermissionBootstrap(snapshot) {
+  $("#permissions-state").textContent = snapshot.state;
+  $("#permissions-orientation").textContent = snapshot.sensors.orientation;
+  $("#permissions-motion").textContent = snapshot.sensors.motion;
+  $("#permissions-location").textContent = snapshot.location.state;
+  $("#permissions-callback-time").textContent = snapshot.location.firstCallbackElapsedMs === null
+    ? "—"
+    : `${Math.round(snapshot.location.firstCallbackElapsedMs)} ms`;
+  $("#permissions-bootstrap-start").disabled = snapshot.started;
+  renderRows($("#permissions-output"), Object.entries(flatten({
+    input: snapshot.input,
+    environment: snapshot.environment,
+    sensors: snapshot.sensors,
+    location: snapshot.location
+  })));
+
+  if (snapshot.state === "not-started") {
+    $("#permissions-status").textContent = "Not started · no permission API has been called";
+    return;
+  }
+  if (snapshot.state === "requesting-sensors") {
+    $("#permissions-status").textContent = "Requesting Sensors, then Location…";
+    return;
+  }
+  if (snapshot.state === "waiting") {
+    $("#permissions-status").textContent = "Location request issued · waiting for the first callback";
+    return;
+  }
+  $("#permissions-status").textContent = `Complete · Location ${snapshot.location.state}`;
+  $("#permissions-instruction").textContent =
+    "Stay on this root page. Use middle pinch, then record whether Universal Menu now contains Permissions and which categories appear.";
+}
+
+const permissionBootstrap = createPermissionBootstrap({
+  globalObject: window,
+  geolocation: navigator.geolocation,
+  logger,
+  onUpdate: renderPermissionBootstrap
+});
+const permissionsStartButton = $("#permissions-bootstrap-start");
+permissionsStartButton.addEventListener("keydown", (event) => {
+  if (event.key !== "Enter" || event.repeat) return;
+  event.preventDefault();
+  permissionBootstrap.startFromEvent(event);
+});
+permissionsStartButton.addEventListener("click", (event) => {
+  permissionBootstrap.startFromEvent(event);
+});
+renderPermissionBootstrap(permissionBootstrap.snapshot());
 
 $$("[data-clear]").forEach((button) => button.addEventListener("click", () => {
   const module = button.dataset.clear;
@@ -929,7 +980,6 @@ async function refreshLocationPermission() {
   return result;
 }
 $("#refresh-location-permission").addEventListener("click", refreshLocationPermission);
-refreshLocationPermission();
 
 function syncLocationOptions() {
   Object.assign(locationThresholds, {
