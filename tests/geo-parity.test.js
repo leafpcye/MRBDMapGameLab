@@ -84,6 +84,7 @@ function pluginRuntimeHarness() {
   const windowEvents = new Map();
   const oneShotCalls = [];
   const watchCalls = [];
+  const timeouts = [];
   let performanceMs = 100;
   const documentObject = {
     visibilityState: "visible",
@@ -96,6 +97,8 @@ function pluginRuntimeHarness() {
           textContent: "",
           value: "",
           disabled: false,
+          hidden: false,
+          className: "",
           addEventListener(name, callback) { listeners.set(name, callback); },
           dispatch(name, event) { listeners.get(name)?.(event); },
           focus() { documentObject.activeElement = node; },
@@ -147,7 +150,15 @@ function pluginRuntimeHarness() {
     },
     performance: { now: () => performanceMs },
     setInterval() { return 1; },
-    clearInterval() {}
+    clearInterval() {},
+    setTimeout(callback, delay) {
+      const token = { callback, delay, cancelled: false };
+      timeouts.push(token);
+      return token;
+    },
+    clearTimeout(token) {
+      if (token) token.cancelled = true;
+    }
   });
   vm.runInContext(pluginScript, context);
   documentEvents.get("DOMContentLoaded")();
@@ -164,7 +175,15 @@ function pluginRuntimeHarness() {
     windowEvents,
     oneShotCalls,
     watchCalls,
+    timeouts,
     trustedEnter,
+    flushNextTimeout() {
+      const token = timeouts.find((candidate) => !candidate.cancelled);
+      if (!token) return false;
+      token.cancelled = true;
+      token.callback();
+      return true;
+    },
     setPerformance(value) { performanceMs = value; },
     text(id) { return nodes.get(id)?.textContent; },
     evidence() { return JSON.parse(nodes.get("evidence-json").value); }
@@ -363,6 +382,51 @@ test("plugin parity watch passes no options argument", () => {
   assert.equal(runtime.watchCalls.length, 1);
   assert.equal(runtime.watchCalls[0].argumentCount, 2);
   assert.equal(runtime.watchCalls[0].options, undefined);
+});
+
+test("compact matrix starts the old bootstrap case directly from one trusted Enter", () => {
+  const runtime = pluginRuntimeHarness();
+  runtime.nodes.get("run-matrix").dispatch("keydown", runtime.trustedEnter());
+  assert.equal(runtime.oneShotCalls.length, 1);
+  assert.deepEqual({ ...runtime.oneShotCalls[0].options }, {
+    enableHighAccuracy: false,
+    timeout: 3000,
+    maximumAge: 60000
+  });
+  assert.equal(runtime.text("matrix-old-bootstrap-state"), "RUNNING");
+});
+
+test("compact matrix advances sequentially and keeps PASS rows compact", () => {
+  const runtime = pluginRuntimeHarness();
+  runtime.nodes.get("run-matrix").dispatch("keydown", runtime.trustedEnter());
+  runtime.oneShotCalls[0].success({
+    coords: { latitude: 1, longitude: 2, accuracy: 8 }
+  });
+  assert.equal(runtime.text("matrix-old-bootstrap-state"), "PASS");
+  assert.equal(runtime.nodes.get("matrix-old-bootstrap-detail").hidden, true);
+  assert.equal(runtime.flushNextTimeout(), true);
+  assert.equal(runtime.oneShotCalls.length, 2);
+  assert.deepEqual({ ...runtime.oneShotCalls[1].options }, { timeout: 15000 });
+});
+
+test("compact matrix expands failure details and enables trusted confirmation after completion", () => {
+  const runtime = pluginRuntimeHarness();
+  runtime.nodes.get("run-matrix").dispatch("keydown", runtime.trustedEnter());
+  runtime.oneShotCalls[0].error({ code: 1, name: "GeolocationPositionError", message: "User denied Geolocation" });
+  assert.equal(runtime.text("matrix-old-bootstrap-state"), "FAIL");
+  assert.equal(runtime.nodes.get("matrix-old-bootstrap-detail").hidden, false);
+  assert.match(runtime.text("matrix-old-bootstrap-detail"), /User denied Geolocation/);
+  assert.match(runtime.text("matrix-old-bootstrap-detail"), /"timeout":3000/);
+});
+
+test("compact matrix declares all seven controlled cases", () => {
+  assert.match(pluginSource, /old-bootstrap[\s\S]*enableHighAccuracy:\s*false,\s*timeout:\s*3000,\s*maximumAge:\s*60000/);
+  assert.match(pluginSource, /plugin-one-shot[\s\S]*timeout:\s*15000/);
+  assert.match(pluginSource, /timeout-3s[\s\S]*timeout:\s*3000/);
+  assert.match(pluginSource, /explicit-low[\s\S]*enableHighAccuracy:\s*false,\s*timeout:\s*15000/);
+  assert.match(pluginSource, /cached-low[\s\S]*timeout:\s*15000,\s*maximumAge:\s*60000/);
+  assert.match(pluginSource, /high-accuracy[\s\S]*enableHighAccuracy:\s*true,\s*timeout:\s*15000,\s*maximumAge:\s*0/);
+  assert.match(pluginSource, /plugin-watch[\s\S]*kind:\s*"watch",\s*options:\s*null/);
 });
 
 test("plugin parity evidence never retains exact coordinates", () => {

@@ -41,6 +41,7 @@
       padding-bottom: 7px;
     }
     h1 { margin: 0; color: var(--accent); font-size: 23px; letter-spacing: .02em; }
+    h2 { margin: 0; color: var(--accent); font-size: 15px; letter-spacing: .06em; text-transform: uppercase; }
     .version { color: var(--muted); font-size: 12px; white-space: nowrap; }
     .summary {
       display: grid;
@@ -69,6 +70,19 @@
     button:first-child { color: var(--bg); background: var(--accent); border-color: var(--accent); }
     button:disabled { opacity: .42; }
     button:focus-visible { outline: 3px solid var(--warning); outline-offset: 3px; }
+    .matrix-panel { min-height: 0; overflow: auto; }
+    .matrix-panel > button { width: 100%; margin: 7px 0; text-align: center; }
+    #matrix-summary { margin: 4px 0; color: var(--muted); font-size: 12px; }
+    .matrix-list { margin: 4px 0; padding: 0; list-style: none; }
+    .matrix-list li { display: grid; grid-template-columns: 1fr auto; gap: 3px 8px; padding: 4px 0; border-bottom: 1px solid #203028; font-size: 13px; }
+    .matrix-list strong { color: var(--muted); }
+    .matrix-list .pass { color: var(--accent); }
+    .matrix-list .fail { color: var(--danger); }
+    .matrix-list .running { color: var(--warning); }
+    .matrix-list small { grid-column: 1 / -1; color: var(--danger); overflow-wrap: anywhere; }
+    .matrix-actions { margin-top: 7px; }
+    .manual { border-top: 1px solid var(--line); padding-top: 5px; color: var(--muted); font-size: 12px; }
+    .manual[open] { color: var(--text); }
     .evidence {
       min-height: 0;
       display: grid;
@@ -106,7 +120,7 @@
   <main>
     <header>
       <h1>PLUGIN LOCATION PARITY</h1>
-      <span class="version">parity-v1 · 0.2.5</span>
+      <span class="version">parity-v2 · 0.2.6</span>
     </header>
 
     <section class="summary" aria-label="Probe status">
@@ -120,36 +134,56 @@
       <div class="metric"><span class="label">First callback</span><span class="value" id="first-callback">—</span></div>
     </section>
 
-    <nav class="actions" aria-label="Location probe actions">
-      <button id="start-one-shot">1 · One-shot<br>Plugin exact · 15 s</button>
-      <button id="start-watch">2 · Watch<br>Plugin exact · no options</button>
-      <button id="stop-watch" disabled>Stop Watch</button>
-      <button id="show-evidence">Show Evidence JSON</button>
-      <button id="back-to-probe">Back to Main Probe</button>
-    </nav>
-
-    <section class="evidence" aria-label="Location evidence">
-      <dl>
-        <div><dt>One-shot options</dt><dd>timeout 15000 only</dd></div>
-        <div><dt>Watch options</dt><dd>none</dd></div>
-        <div><dt>Issued at</dt><dd id="issued-at">—</dd></div>
-        <div><dt>Elapsed</dt><dd id="elapsed">0 ms</dd></div>
-        <div><dt>Latitude present</dt><dd id="latitude-present">no</dd></div>
-        <div><dt>Longitude present</dt><dd id="longitude-present">no</dd></div>
-        <div><dt>Accuracy</dt><dd id="accuracy">—</dd></div>
-      </dl>
-      <dl>
-        <div><dt>Error code</dt><dd id="error-code">—</dd></div>
-        <div><dt>Error name</dt><dd id="error-name">—</dd></div>
-        <div><dt>Error message</dt><dd id="error-message">—</dd></div>
-        <div><dt>Visibility</dt><dd id="visibility">—</dd></div>
-        <div><dt>SW controller</dt><dd id="sw-controller">—</dd></div>
-        <div><dt>Page URL</dt><dd id="page-url">—</dd></div>
-      </dl>
+    <section class="matrix-panel" aria-labelledby="matrix-title">
+      <h2 id="matrix-title">Compact option matrix</h2>
+      <p id="matrix-summary">Not run · one Enter tests all seven cases</p>
+      <button id="run-matrix">Run All Location Cases</button>
+      <ol class="matrix-list">
+        <li><span>Old bootstrap</span><strong id="matrix-old-bootstrap-state">PENDING</strong><small id="matrix-old-bootstrap-detail" hidden></small></li>
+        <li><span>Plugin one-shot</span><strong id="matrix-plugin-one-shot-state">PENDING</strong><small id="matrix-plugin-one-shot-detail" hidden></small></li>
+        <li><span>Timeout 3 s</span><strong id="matrix-timeout-3s-state">PENDING</strong><small id="matrix-timeout-3s-detail" hidden></small></li>
+        <li><span>Explicit low accuracy</span><strong id="matrix-explicit-low-state">PENDING</strong><small id="matrix-explicit-low-detail" hidden></small></li>
+        <li><span>Cached low accuracy</span><strong id="matrix-cached-low-state">PENDING</strong><small id="matrix-cached-low-detail" hidden></small></li>
+        <li><span>High accuracy</span><strong id="matrix-high-accuracy-state">PENDING</strong><small id="matrix-high-accuracy-detail" hidden></small></li>
+        <li><span>Plugin watch</span><strong id="matrix-plugin-watch-state">PENDING</strong><small id="matrix-plugin-watch-detail" hidden></small></li>
+      </ol>
+      <div class="actions matrix-actions">
+        <button id="confirm-first-failure" disabled>Confirm First Failure</button>
+        <button id="stop-matrix" disabled>Stop Suite</button>
+        <button id="show-evidence">Show Evidence JSON</button>
+        <button id="back-to-probe">Back to Main Probe</button>
+      </div>
     </section>
 
+    <details class="manual">
+      <summary>Manual plugin checks</summary>
+      <nav class="actions" aria-label="Manual Location probe actions">
+        <button id="start-one-shot">One-shot · 15 s</button>
+        <button id="start-watch">Watch · no options</button>
+        <button id="stop-watch" disabled>Stop Watch</button>
+      </nav>
+
+      <section class="evidence" aria-label="Manual Location evidence">
+        <dl>
+          <div><dt>Issued at</dt><dd id="issued-at">—</dd></div>
+          <div><dt>Elapsed</dt><dd id="elapsed">0 ms</dd></div>
+          <div><dt>Latitude present</dt><dd id="latitude-present">no</dd></div>
+          <div><dt>Longitude present</dt><dd id="longitude-present">no</dd></div>
+          <div><dt>Accuracy</dt><dd id="accuracy">—</dd></div>
+        </dl>
+        <dl>
+          <div><dt>Error code</dt><dd id="error-code">—</dd></div>
+          <div><dt>Error name</dt><dd id="error-name">—</dd></div>
+          <div><dt>Error message</dt><dd id="error-message">—</dd></div>
+          <div><dt>Visibility</dt><dd id="visibility">—</dd></div>
+          <div><dt>SW controller</dt><dd id="sw-controller">—</dd></div>
+          <div><dt>Page URL</dt><dd id="page-url">—</dd></div>
+        </dl>
+      </section>
+    </details>
+
     <div>
-      <p class="note">Run each test with Neural Band Enter. No Sensors, Permissions API, Service Worker registration, map, external script, or exact coordinate logging is used.</p>
+      <p class="note">The suite starts its first case in the trusted Enter stack and runs later cases sequentially. A failed case can be repeated once with a fresh trusted Enter. No exact coordinates are logged.</p>
       <textarea id="evidence-json" readonly aria-label="Selectable evidence JSON"></textarea>
     </div>
   </main>
@@ -158,17 +192,27 @@
     "use strict";
 
     (function () {
-      const PAGE_VERSION = "plugin-location-parity-v1";
+      const PAGE_VERSION = "plugin-location-parity-v2";
       const ONE_SHOT_OPTIONS = Object.freeze({ timeout: 15000 });
+      const MATRIX_CASES = Object.freeze([
+        { id: "old-bootstrap", label: "Old bootstrap", kind: "one-shot", options: { enableHighAccuracy: false, timeout: 3000, maximumAge: 60000 } },
+        { id: "plugin-one-shot", label: "Plugin one-shot", kind: "one-shot", options: { timeout: 15000 } },
+        { id: "timeout-3s", label: "Timeout 3 s", kind: "one-shot", options: { timeout: 3000 } },
+        { id: "explicit-low", label: "Explicit low accuracy", kind: "one-shot", options: { enableHighAccuracy: false, timeout: 15000 } },
+        { id: "cached-low", label: "Cached low accuracy", kind: "one-shot", options: { timeout: 15000, maximumAge: 60000 } },
+        { id: "high-accuracy", label: "High accuracy", kind: "one-shot", options: { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 } },
+        { id: "plugin-watch", label: "Plugin watch", kind: "watch", options: null }
+      ]);
       const evidence = {
         pageVersion: PAGE_VERSION,
-        projectVersion: "0.2.5",
+        projectVersion: "0.2.6",
         pageLoadedAt: new Date().toISOString(),
         href: location.href,
         secureContext: Boolean(window.isSecureContext),
         geolocationApiPresent: Boolean(navigator.geolocation),
         serviceWorkerController: Boolean(navigator.serviceWorker && navigator.serviceWorker.controller),
-        calls: []
+        calls: [],
+        matrix: { startedAt: null, completedAt: null, results: [], confirmation: null }
       };
       let activeCall = null;
       let oneShotStarted = false;
@@ -176,6 +220,11 @@
       let watchId = null;
       let lastTrustedEnterAt = -Infinity;
       let elapsedTimer = null;
+      let matrixStarted = false;
+      let matrixRunning = false;
+      let matrixIndex = -1;
+      let matrixOperation = null;
+      let firstFailureId = null;
 
       const element = (id) => document.getElementById(id);
       const show = (id, value) => { element(id).textContent = String(value); };
@@ -310,6 +359,174 @@
         return true;
       }
 
+      function matrixRow(caseId) {
+        return {
+          state: element(`matrix-${caseId}-state`),
+          detail: element(`matrix-${caseId}-detail`)
+        };
+      }
+
+      function renderMatrixResult(caseDef, result, prefix = "") {
+        const row = matrixRow(caseDef.id);
+        row.state.textContent = `${prefix}${result.status}`;
+        row.state.className = result.status === "PASS" ? "pass" : "fail";
+        if (result.status === "FAIL") {
+          const error = result.error || {};
+          row.detail.hidden = false;
+          row.detail.textContent =
+            `${result.elapsedMs} ms · ${error.code ?? "—"} ${error.codeName || error.name || "UNKNOWN"} · ${error.message || "(empty)"} · options ${JSON.stringify(caseDef.options)}`;
+        } else {
+          row.detail.hidden = true;
+          row.detail.textContent = "";
+        }
+      }
+
+      function updateMatrixSummary() {
+        const results = evidence.matrix.results;
+        const passCount = results.filter((result) => result.status === "PASS").length;
+        const failCount = results.filter((result) => result.status === "FAIL").length;
+        if (matrixRunning) {
+          show("matrix-summary", `Running ${Math.min(matrixIndex + 1, MATRIX_CASES.length)}/${MATRIX_CASES.length} · PASS ${passCount} · FAIL ${failCount}`);
+        } else if (results.length) {
+          show("matrix-summary", `Complete · PASS ${passCount}/${MATRIX_CASES.length} · FAIL ${failCount}/${MATRIX_CASES.length}`);
+        }
+      }
+
+      function runMatrixCase(caseDef, event, onSettled) {
+        const startedAt = performance.now();
+        const activation = activationSnapshot(event);
+        let settled = false;
+        let watchToken = null;
+        let cleanupError = null;
+        const timeoutMs = caseDef.kind === "watch" ? 20000 : Number(caseDef.options.timeout) + 2000;
+        let watchdog = setTimeout(function () {
+          finish("FAIL", {
+            code: null,
+            codeName: "CLIENT_TIMEOUT",
+            name: "ClientTimeoutError",
+            message: `No callback within ${timeoutMs} ms`
+          });
+        }, timeoutMs);
+
+        function finish(status, detail) {
+          if (settled) return;
+          settled = true;
+          clearTimeout(watchdog);
+          if (watchToken !== null) {
+            try {
+              navigator.geolocation.clearWatch(watchToken);
+            } catch (error) {
+              cleanupError = publicError(error);
+            }
+          }
+          const result = {
+            id: caseDef.id,
+            label: caseDef.label,
+            kind: caseDef.kind,
+            options: caseDef.options ? { ...caseDef.options } : null,
+            status,
+            elapsedMs: Math.max(0, Math.round(performance.now() - startedAt)),
+            activation,
+            result: status === "PASS" ? detail : null,
+            error: status === "FAIL" ? detail : null,
+            cleanupError
+          };
+          onSettled(result);
+        }
+
+        try {
+          if (!navigator.geolocation) throw Object.assign(new Error("Geolocation API missing"), { name: "MissingAPIError" });
+          if (caseDef.kind === "watch") {
+            watchToken = navigator.geolocation.watchPosition(
+              (position) => finish("PASS", publicPosition(position)),
+              (error) => finish("FAIL", publicError(error))
+            );
+          } else {
+            navigator.geolocation.getCurrentPosition(
+              (position) => finish("PASS", publicPosition(position)),
+              (error) => finish("FAIL", publicError(error)),
+              caseDef.options
+            );
+          }
+        } catch (error) {
+          finish("FAIL", publicError(error));
+        }
+
+        return function cancel() {
+          if (settled) return;
+          settled = true;
+          clearTimeout(watchdog);
+          if (watchToken !== null) {
+            try {
+              navigator.geolocation.clearWatch(watchToken);
+            } catch (error) {
+              evidence.matrix.cancelCleanupError = publicError(error);
+            }
+          }
+        };
+      }
+
+      function issueNextMatrixCase(firstEvent = null) {
+        if (!matrixRunning) return;
+        matrixIndex += 1;
+        if (matrixIndex >= MATRIX_CASES.length) {
+          matrixRunning = false;
+          evidence.matrix.completedAt = new Date().toISOString();
+          element("stop-matrix").disabled = true;
+          element("confirm-first-failure").disabled = firstFailureId === null;
+          updateMatrixSummary();
+          refreshEvidenceText();
+          return;
+        }
+        const caseDef = MATRIX_CASES[matrixIndex];
+        const row = matrixRow(caseDef.id);
+        row.state.textContent = "RUNNING";
+        row.state.className = "running";
+        updateMatrixSummary();
+        matrixOperation = runMatrixCase(caseDef, firstEvent, function (result) {
+          evidence.matrix.results.push(result);
+          renderMatrixResult(caseDef, result);
+          if (result.status === "FAIL" && firstFailureId === null) firstFailureId = caseDef.id;
+          refreshEvidenceText();
+          setTimeout(() => issueNextMatrixCase(null), 250);
+        });
+      }
+
+      function runMatrix(event) {
+        if (!trustedAction(event, "matrix") || matrixStarted) return;
+        matrixStarted = true;
+        matrixRunning = true;
+        matrixIndex = -1;
+        evidence.matrix.startedAt = new Date().toISOString();
+        element("run-matrix").disabled = true;
+        element("stop-matrix").disabled = false;
+        element("start-one-shot").disabled = true;
+        element("start-watch").disabled = true;
+        issueNextMatrixCase(event);
+      }
+
+      function stopMatrix() {
+        if (!matrixRunning) return;
+        matrixRunning = false;
+        matrixOperation?.();
+        element("stop-matrix").disabled = true;
+        show("matrix-summary", `Stopped after ${evidence.matrix.results.length}/${MATRIX_CASES.length}`);
+        refreshEvidenceText();
+      }
+
+      function confirmFirstFailure(event) {
+        if (!trustedAction(event, "confirm") || matrixRunning || firstFailureId === null) return;
+        const caseDef = MATRIX_CASES.find((candidate) => candidate.id === firstFailureId);
+        element("confirm-first-failure").disabled = true;
+        show("matrix-summary", `Confirming ${caseDef.label} with fresh trusted input…`);
+        matrixOperation = runMatrixCase(caseDef, event, function (result) {
+          evidence.matrix.confirmation = result;
+          renderMatrixResult(caseDef, result, "CONFIRM ");
+          show("matrix-summary", `Confirmation · ${caseDef.label} · ${result.status}`);
+          refreshEvidenceText();
+        });
+      }
+
       function startOneShot(event) {
         if (!trustedAction(event, "one-shot") || oneShotStarted || activeCall && activeCall.state === "issued") return;
         oneShotStarted = true;
@@ -376,6 +593,9 @@
         show("visibility", document.visibilityState);
         show("sw-controller", evidence.serviceWorkerController);
         show("page-url", location.pathname);
+        installTrustedStart(element("run-matrix"), runMatrix);
+        installTrustedStart(element("confirm-first-failure"), confirmFirstFailure);
+        element("stop-matrix").addEventListener("click", stopMatrix);
         installTrustedStart(element("start-one-shot"), startOneShot);
         installTrustedStart(element("start-watch"), startWatch);
         element("stop-watch").addEventListener("click", stopWatch);

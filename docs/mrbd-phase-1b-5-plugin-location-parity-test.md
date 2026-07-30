@@ -4,7 +4,21 @@ Use:
 
 <https://leafpcye.github.io/MRBDMapGameLab/plugin-location-parity.html>
 
-Confirm the page shows `parity-v1 · 0.2.5`. This is an isolated diagnostic page based on the Meta Wearables plugin's public `navigator.geolocation` examples. It does not request Sensors, query the Permissions API, register a Service Worker, load maps, or retain exact coordinates.
+Confirm the page shows `parity-v2 · 0.2.6`. This is an isolated diagnostic page based on the Meta Wearables plugin's public `navigator.geolocation` examples. It does not request Sensors, query the Permissions API, register a Service Worker, load maps, or retain exact coordinates.
+
+## Compact matrix — recommended
+
+1. Fully close and reopen the Web App so the first case is as close to a cold request as practical.
+2. Open this parity page.
+3. Focus `Run All Location Cases`.
+4. Activate it once with Neural Band Enter.
+5. Wait until the summary says `Complete`.
+6. Record only the final `PASS n/7 · FAIL n/7` line.
+7. If any row is `FAIL`, its code, message, elapsed time, and exact options appear beneath that row.
+8. Focus `Confirm First Failure` and activate it once. This reruns only the first failed case with a fresh trusted Enter.
+9. Choose `Show Evidence JSON` only if the compact result needs to be preserved.
+
+The first matrix request begins in the original trusted Enter stack. Later requests are intentionally sequential and may no longer have active user activation. The confirmation button separates a real option failure from a Host that requires every request to originate from a fresh gesture.
 
 ## Preconditions
 
