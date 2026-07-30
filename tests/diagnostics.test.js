@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { shouldUseLargeText, readLargeTextPreference, writeLargeTextPreference } from "../modules/preferences.js";
-import { getNavigationTarget, getDirectionalNeighbor } from "../modules/navigation.js";
+import { getNavigationTarget, getDirectionalNeighbor, isVisibleFocusCandidate } from "../modules/navigation.js";
 import {
   boundedRecentEvents,
   createPairTracker,
@@ -70,6 +70,27 @@ test("app navigation helper preserves vertical and horizontal boundaries", () =>
   assert.equal(getNavigationTarget({ key: "ArrowDown", index: 1, count: 5, orientation: "vertical" }), 2);
   assert.equal(getNavigationTarget({ key: "ArrowUp", index: 0, count: 5, orientation: "vertical" }), 0);
   assert.equal(getNavigationTarget({ key: "ArrowRight", index: 2, count: 3, orientation: "horizontal" }), 2);
+});
+
+test("focus routing excludes controls on hidden instrument pages", () => {
+  const visible = {
+    disabled: false,
+    hidden: false,
+    closest: () => null,
+    getBoundingClientRect: () => rect(0, 0)
+  };
+  const hiddenByPage = {
+    ...visible,
+    closest: (selector) => selector === "[hidden]" ? {} : null
+  };
+  const zeroSized = {
+    ...visible,
+    getBoundingClientRect: () => rect(0, 0, 0, 0)
+  };
+  assert.equal(isVisibleFocusCandidate(visible), true);
+  assert.equal(isVisibleFocusCandidate(hiddenByPage), false);
+  assert.equal(isVisibleFocusCandidate(zeroSized), false);
+  assert.equal(isVisibleFocusCandidate({ ...visible, disabled: true }), false);
 });
 
 test("runtime context initializes once and keeps one page instance", () => {

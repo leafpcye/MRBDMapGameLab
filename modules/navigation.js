@@ -43,3 +43,10 @@ export function getDirectionalNeighbor({ key, currentIndex, rects }) {
 
   return bestIndex;
 }
+
+export function isVisibleFocusCandidate(element) {
+  if (!element || element.disabled || element.hidden) return false;
+  if (element.closest?.("[hidden]")) return false;
+  const rect = element.getBoundingClientRect?.();
+  return Boolean(rect && rect.width > 0 && rect.height > 0);
+}

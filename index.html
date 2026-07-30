@@ -43,7 +43,7 @@
           <button data-open="lifecycle"><span>04</span>Lifecycle<small>Hide, restore & reload</small></button>
           <button data-open="network"><span>05</span>Network<small>State & same-origin fetch</small></button>
           <button data-open="export"><span>06</span>Export<small>Download, share & fallback</small></button>
-          <button data-open="location"><span>07</span>Location<small>Foreground position evidence</small></button>
+          <button id="open-location-runtime"><span>07</span>Location<small>Verified standalone Runtime probe</small></button>
           <button data-open="motion"><span>08</span>Motion / Orientation<small>Foreground IMU evidence</small></button>
           <button data-open="combined"><span>09</span>Combined<small>Location + IMU timeline</small></button>
         </nav>
@@ -51,8 +51,8 @@
 
       <section class="page" data-page="permissions" aria-labelledby="permissions-title">
         <div class="section-heading">
-          <p class="kicker">00 / RUNTIME PERMISSION REGISTRATION</p>
-          <h2 id="permissions-title">Permissions Bootstrap</h2>
+          <p class="kicker">00 / LEGACY MAIN-DOCUMENT CONTROL</p>
+          <h2 id="permissions-title">Permissions / Legacy Bootstrap</h2>
           <p id="permissions-status">Not started · no permission API has been called</p>
         </div>
         <dl class="live-readout permissions-readout">
@@ -65,13 +65,14 @@
           <div><dt>POST-MENU CALLBACK</dt><dd id="permissions-post-menu-callback-time">—</dd></div>
         </dl>
         <div class="actions primary-actions">
-          <button id="permissions-bootstrap-start">Enable Location + Sensors</button>
-          <button id="permissions-post-menu-verify" disabled>Verify Location After Menu Change</button>
-          <button id="open-plugin-location-parity">Open Plugin Location Parity</button>
+          <button id="permissions-bootstrap-start">Legacy: Register Sensors + Location</button>
+          <button id="permissions-post-menu-verify" disabled>Legacy: Verify Main-document Location</button>
+          <button id="open-plugin-location-parity">Open Verified Location Runtime</button>
+          <button data-open="location">Open Legacy Main-document Location</button>
           <button data-back>Back to Home</button>
         </div>
         <p id="permissions-instruction" class="warning">
-          Run once with Neural Band Enter. This page cannot create the system Permissions menu.
+          Retained as an A/B control: this main-document Location path returned code 1 on MRBD while the standalone Runtime passed 7/7. Use Home 07 for the working Location probe.
         </p>
         <div id="permissions-output" class="results compact-results" aria-live="polite"></div>
         <div class="actions"><button data-clear="permissions-bootstrap">Clear Module Log</button></div>
@@ -206,9 +207,10 @@
       </section>
 
       <section class="page" data-page="location" aria-labelledby="location-title">
-        <div class="section-heading instrument-heading"><p class="kicker">07 / FOREGROUND</p><h2 id="location-title">Location</h2></div>
+        <div class="section-heading instrument-heading"><p class="kicker">LEGACY / MAIN-DOCUMENT CONTROL</p><h2 id="location-title">Legacy Location</h2></div>
+        <p class="warning">Known MRBD control result: this main-document path returned code 1 while the standalone Location Runtime passed 7/7. It remains available only for comparison.</p>
         <div class="instrument-status">
-          <strong id="location-page-label">Location — 1/5</strong>
+          <strong id="location-page-label">Legacy Location — 1/5</strong>
           <span>Request <b id="location-request-state">idle</b></span>
           <span>Watch <b id="location-watch">Stopped</b></span>
           <span>Age <b id="location-callback-age">—</b></span>

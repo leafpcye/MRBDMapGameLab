@@ -1,10 +1,10 @@
-# Phase 1B.5 — Plugin Location Parity Test
+# Phase 1B.5 — Standalone Location Runtime Test
 
 Use:
 
 <https://leafpcye.github.io/MRBDMapGameLab/plugin-location-parity.html>
 
-Confirm the page shows `parity-v2 · 0.2.6`. This is an isolated diagnostic page based on the Meta Wearables plugin's public `navigator.geolocation` examples. It does not request Sensors, query the Permissions API, register a Service Worker, load maps, or retain exact coordinates.
+Open Home **07 Location**, or use the direct URL above. Confirm the page shows `runtime-v1 · 0.2.7`. This standalone document is now the official Location capability entry because it passed all seven controlled cases on MRBD. It remains based on the Meta Wearables plugin's public `navigator.geolocation` examples and does not request Sensors, query the Permissions API, register a Service Worker, load maps, or retain exact coordinates.
 
 ## Compact matrix — recommended
 
@@ -67,11 +67,13 @@ navigator.geolocation.watchPosition(success, error);
 
 ## Interpretation
 
+- `PASS 7/7` confirms foreground W3C Geolocation worked in this standalone document during that MRBD session.
 - A successful one-shot isolates the earlier failure to request ordering or options in the main Probe.
 - A failed one-shot but successful watch means the Host treats the two W3C APIs differently.
 - Code 3 indicates a standard timeout observation.
 - Code 1 with `User denied Geolocation`, while the Runtime toggle remains enabled, is evidence that the Host-visible toggle and W3C callback state disagree.
 - Failure of both exact plugin patterns is evidence against a missing project-side Geolocation option or Meta private API. It does not prove the exact Host, firmware, account, or rollout defect.
+- A difference between this page and the retained Legacy main-document probe is evidence of a document/runtime-context boundary; it does not reveal the Host's internal registration rule.
 
 ## Result record
 

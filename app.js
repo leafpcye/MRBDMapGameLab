@@ -9,7 +9,7 @@ import { snapshotJSON, snapshotCSV, triggerDownload, copyText, shareJSON } from 
 import { renderRows, renderRecent, shortId } from "./modules/ui.js";
 import { readLargeTextPreference, shouldUseLargeText, writeLargeTextPreference } from "./modules/preferences.js";
 import { readLifecycleCheckpoint, writeLifecycleCheckpoint, classifyLifecycleEvidence } from "./modules/lifecycle-checkpoint.js";
-import { getDirectionalNeighbor } from "./modules/navigation.js";
+import { getDirectionalNeighbor, isVisibleFocusCandidate } from "./modules/navigation.js";
 import { initializeRuntimeContext, getRuntimeContext, checkRuntimeContextConsistency } from "./modules/runtime-context.js";
 import { createLifecycleTrace } from "./modules/lifecycle-trace.js";
 import { createActivationTracker, flashActivation } from "./modules/activation.js";
@@ -131,12 +131,16 @@ function currentPage() {
   return $(".page.active")?.dataset.page || "home";
 }
 
+function activeFocusCandidates() {
+  return $$(`.page.active button:not([disabled]), .page.active input:not([disabled]), .page.active select:not([disabled]), .page.active textarea:not([disabled])`)
+    .filter(isVisibleFocusCandidate);
+}
+
 function openPage(page) {
   $$(".page").forEach((section) => section.classList.toggle("active", section.dataset.page === page));
   $("#current-page").textContent = page[0].toUpperCase() + page.slice(1);
   logger.log("ui", "page-opened", { page });
-  const first = $(`.page[data-page="${page}"] button, .page[data-page="${page}"] input`);
-  requestAnimationFrame(() => first?.focus());
+  requestAnimationFrame(() => activeFocusCandidates()[0]?.focus());
   refreshRecent();
   if (page === "lifecycle") updateLifecycleReadout();
 }
@@ -155,7 +159,9 @@ document.addEventListener("keydown", (event) => {
     return;
   }
   if (!["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight"].includes(event.key)) return;
-  const focusable = $$(`.page.active button:not([disabled]), .page.active input:not([disabled]), .page.active select:not([disabled]), .page.active textarea:not([disabled])`);
+  // Hidden instrument pages stay in the DOM for evidence retention. Excluding
+  // their controls prevents Neural Band focus from skipping visible presets.
+  const focusable = activeFocusCandidates();
   const index = focusable.indexOf(document.activeElement);
   if (index < 0) return;
   let next = index;
@@ -259,9 +265,11 @@ permissionsPostMenuButton.addEventListener("keydown", (event) => {
 permissionsPostMenuButton.addEventListener("click", (event) => {
   permissionBootstrap.verifyLocationFromEvent(event);
 });
-$("#open-plugin-location-parity").addEventListener("click", () => {
+function openStandaloneLocationRuntime() {
   window.location.href = new URL("./plugin-location-parity.html", window.location.href).href;
-});
+}
+$("#open-plugin-location-parity").addEventListener("click", openStandaloneLocationRuntime);
+$("#open-location-runtime").addEventListener("click", openStandaloneLocationRuntime);
 renderPermissionBootstrap(permissionBootstrap.snapshot());
 
 $$("[data-clear]").forEach((button) => button.addEventListener("click", () => {
@@ -1309,7 +1317,7 @@ function installLocationPager() {
   let index = 0;
   const render = () => {
     $$("[data-location-page]").forEach((panel) => { panel.hidden = panel.dataset.locationPage !== pages[index].key; });
-    $("#location-page-label").textContent = `Location — ${index + 1}/${pages.length} · ${pages[index].title}`;
+    $("#location-page-label").textContent = `Legacy Location — ${index + 1}/${pages.length} · ${pages[index].title}`;
     $("#location-previous").disabled = index === 0;
     $("#location-next").disabled = index === pages.length - 1;
     logger.log("location", "instrument-page-changed", { page: pages[index].key, pageNumber: index + 1, totalPages: pages.length });

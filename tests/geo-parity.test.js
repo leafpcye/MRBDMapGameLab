@@ -17,6 +17,8 @@ const pluginSourcePath = path.join(root, "plugin-location-parity.html");
 const pluginDistPath = path.join(root, "dist", "plugin-location-parity.html");
 const pluginSource = await readFile(pluginSourcePath, "utf8");
 const pluginScript = pluginSource.match(/<script>([\s\S]*?)<\/script>/)?.[1] || "";
+const mainIndexSource = await readFile(path.join(root, "index.html"), "utf8");
+const mainAppSource = await readFile(path.join(root, "app.js"), "utf8");
 let server;
 let baseUrl;
 
@@ -345,12 +347,19 @@ test("built page remains self-contained and does not redirect to the main app", 
   assert.equal(body.includes("MRBD Capability Probe"), false);
 });
 
-test("plugin Location parity page is built and served from the Pages subpath", async () => {
+test("standalone Location Runtime is built and served from the Pages subpath", async () => {
   assert.ok((await stat(pluginDistPath)).size > 1000);
   const response = await fetch(`${baseUrl}/MRBDMapGameLab/plugin-location-parity.html`);
   assert.equal(response.status, 200);
   assert.match(response.headers.get("content-type"), /^text\/html/);
-  assert.match(await response.text(), /PLUGIN LOCATION PARITY/);
+  assert.match(await response.text(), /LOCATION RUNTIME/);
+});
+
+test("Home 07 opens the standalone Runtime while the legacy page remains diagnostic-only", () => {
+  assert.match(mainIndexSource, /id="open-location-runtime"><span>07<\/span>Location/);
+  assert.doesNotMatch(mainIndexSource, /data-open="location"><span>07<\/span>Location/);
+  assert.match(mainIndexSource, /data-open="location">Open Legacy Main-document Location/);
+  assert.match(mainAppSource, /open-location-runtime[\s\S]*openStandaloneLocationRuntime/);
 });
 
 test("plugin parity page has no automatic Geolocation request", () => {

@@ -1,6 +1,6 @@
 # MRBD Capability Probe
 
-A minimal, repeatable evidence harness for Meta Ray-Ban Display (MRBD) web-runtime investigation. Current Probe version: **0.2.6**. It retains the Phase 1A runtime, input, storage, lifecycle, network, and export probes and adds **Phase 1B foreground-only Location and Motion/Orientation probes**.
+A minimal, repeatable evidence harness for Meta Ray-Ban Display (MRBD) web-runtime investigation. Current Probe version: **0.2.7**. It retains the Phase 1A runtime, input, storage, lifecycle, network, and export probes and adds **Phase 1B foreground-only Location and Motion/Orientation probes**.
 
 This repository does **not** contain background tracking, Audio, speech, AI, maps, routes, POI, game content, accounts, a backend, remote logging, or a native companion. Phase 1B Audio and all later phases are not implemented.
 
@@ -25,6 +25,8 @@ Phase 1B.4 adds a root-document **Permissions Bootstrap** Probe based on the ins
 Version `0.2.5` adds the isolated [Plugin Location Parity page](https://leafpcye.github.io/MRBDMapGameLab/plugin-location-parity.html). It reproduces the Meta Wearables plugin guidance without the main app, Sensors, Permissions API, Service Worker registration, external scripts, or maps. A trusted Enter/click can run either the plugin's timeout-only one-shot request (`{ timeout: 15000 }`) or its no-options `watchPosition()` pattern. The page records activation, timing, standard errors, coordinate-field presence, and accuracy, but never stores or displays exact coordinates.
 
 Version `0.2.6` adds a one-button compact matrix to that page. It runs seven Location configurations sequentially, shows only PASS/FAIL for successful cases, automatically expands full options and error details for failures, and offers one fresh trusted-input confirmation of the first failed case. The original manual plugin checks remain available in a collapsed section.
+
+Version `0.2.7` promotes that verified standalone document to the Home **07 Location** entry. The user-run MRBD session passed all seven controlled Location cases there, while the original main-document Bootstrap and direct retry continued to return code 1. The old Location page is retained as an explicitly labelled Legacy A/B control under `00 Permissions`. Focus routing now excludes controls inside hidden instrument pages, so Neural Band navigation cannot skip visible preset buttons.
 
 ## Local development
 
@@ -75,7 +77,7 @@ See [docs/deployment.md](docs/deployment.md) for activation, verification, rollb
 
 - `index.html`, `styles.css`, `app.js`: 600×600-oriented probe UI and orchestration.
 - `geo-parity.html`: isolated, self-contained startup `watchPosition()` parity experiment.
-- `plugin-location-parity.html`: isolated, user-activated reproduction of the Meta plugin's one-shot and watch patterns.
+- `plugin-location-parity.html`: official standalone Location Runtime entry, preserving the verified one-shot, watch, and seven-case matrix.
 - `modules/`: logger, Phase 1A diagnostics, permission bootstrap, Location calculations/probe, IMU sampling/probe, activation feedback, and Runtime Snapshot helpers.
 - `sw.js`, `manifest.webmanifest`: minimal versioned app shell.
 - `scripts/dev-server.mjs`: localhost-only static server with no-store responses and traversal protection.
@@ -106,4 +108,4 @@ Every structured export includes an Environment snapshot, build version, Git com
 
 Desktop Chrome/Safari and iPhone Safari results are prechecks only. They must never be reported as MRBD Runtime or Neural Band results. User-run findings are recorded separately for the [first session](docs/results/phase-1a-first-device-session-template.md) and [second session](docs/results/phase-1a-1-second-device-session.md). Follow the short [Phase 1A.2 retest](docs/mrbd-phase-1a-2-retest.md) on real hardware and preserve the exported logs.
 
-The next action is the controlled [Plugin Location Parity test](docs/mrbd-phase-1b-5-plugin-location-parity-test.md). Previous real-device runs caused the Runtime-owned Permissions menu to appear and retain Location as enabled, but initial, post-menu, restart, high-accuracy, and fresh-origin requests still returned code 1 `PERMISSION_DENIED` / `User denied Geolocation`. Version `0.2.5` isolates the exact Meta plugin call patterns from the existing permission bootstrap. Desktop checks do not establish MRBD permission behavior.
+The standalone Location document now has positive MRBD evidence: one-shot returned coordinate-field presence with accuracy, no-options watch produced nine successful callbacks with a 163 ms first callback, and the seven-case matrix passed `7/7`. In contrast, the main-document `00 Permissions` request and post-menu retry continued to return code 1 at about three seconds after Restart. This proves a document/runtime-context difference in the tested build, but not the Host's internal cause. See the [recorded result](docs/results/phase-1b-5-v0.2.6-location-runtime-observation.md) and the updated [Location Runtime test](docs/mrbd-phase-1b-5-plugin-location-parity-test.md). Desktop checks remain prechecks only.

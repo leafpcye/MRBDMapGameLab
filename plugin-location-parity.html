@@ -3,11 +3,11 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=600,height=600,initial-scale=1,viewport-fit=cover">
-  <meta name="description" content="Isolated Meta Wearables plugin-parity Geolocation probe.">
+  <meta name="description" content="Standalone MRBD Geolocation Runtime probe verified with seven controlled cases.">
   <meta name="mrbd-web-app-capable" content="yes">
   <meta name="theme-color" content="#050807">
   <meta name="color-scheme" content="dark">
-  <title>MRBD Plugin Location Parity</title>
+  <title>MRBD Standalone Location Runtime</title>
   <style>
     :root {
       color-scheme: dark;
@@ -119,8 +119,8 @@
 <body>
   <main>
     <header>
-      <h1>PLUGIN LOCATION PARITY</h1>
-      <span class="version">parity-v2 · 0.2.6</span>
+      <h1>LOCATION RUNTIME</h1>
+      <span class="version">runtime-v1 · 0.2.7</span>
     </header>
 
     <section class="summary" aria-label="Probe status">
@@ -192,7 +192,7 @@
     "use strict";
 
     (function () {
-      const PAGE_VERSION = "plugin-location-parity-v2";
+      const PAGE_VERSION = "standalone-location-runtime-v1";
       const ONE_SHOT_OPTIONS = Object.freeze({ timeout: 15000 });
       const MATRIX_CASES = Object.freeze([
         { id: "old-bootstrap", label: "Old bootstrap", kind: "one-shot", options: { enableHighAccuracy: false, timeout: 3000, maximumAge: 60000 } },
@@ -205,7 +205,7 @@
       ]);
       const evidence = {
         pageVersion: PAGE_VERSION,
-        projectVersion: "0.2.6",
+        projectVersion: "0.2.7",
         pageLoadedAt: new Date().toISOString(),
         href: location.href,
         secureContext: Boolean(window.isSecureContext),
