@@ -259,6 +259,9 @@ permissionsPostMenuButton.addEventListener("keydown", (event) => {
 permissionsPostMenuButton.addEventListener("click", (event) => {
   permissionBootstrap.verifyLocationFromEvent(event);
 });
+$("#open-plugin-location-parity").addEventListener("click", () => {
+  window.location.href = new URL("./plugin-location-parity.html", window.location.href).href;
+});
 renderPermissionBootstrap(permissionBootstrap.snapshot());
 
 $$("[data-clear]").forEach((button) => button.addEventListener("click", () => {

@@ -48,10 +48,14 @@ self.addEventListener("activate", (event) => {
 self.addEventListener("fetch", (event) => {
   const requestUrl = new URL(event.request.url);
   if (event.request.method !== "GET" || requestUrl.origin !== self.location.origin) return;
-  // The parity page intentionally bypasses this app shell. It must expose the
-  // host Runtime's startup watchPosition behavior without cached navigation
-  // fallback, even though the existing project-scoped worker may control it.
-  if (requestUrl.pathname === new URL("geo-parity.html", APP_BASE).pathname) {
+  // The parity pages intentionally bypass this app shell. They must expose the
+  // host Runtime's Geolocation behavior without cached navigation fallback,
+  // even when this existing project-scoped worker already controls the scope.
+  const parityPaths = [
+    new URL("geo-parity.html", APP_BASE).pathname,
+    new URL("plugin-location-parity.html", APP_BASE).pathname
+  ];
+  if (parityPaths.includes(requestUrl.pathname)) {
     event.respondWith(fetch(event.request));
     return;
   }

@@ -8,6 +8,7 @@ const output = path.join(root, "dist");
 const files = [
   "index.html",
   "geo-parity.html",
+  "plugin-location-parity.html",
   "styles.css",
   "app.js",
   "manifest.webmanifest",

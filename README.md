@@ -1,6 +1,6 @@
 # MRBD Capability Probe
 
-A minimal, repeatable evidence harness for Meta Ray-Ban Display (MRBD) web-runtime investigation. Current Probe version: **0.2.4**. It retains the Phase 1A runtime, input, storage, lifecycle, network, and export probes and adds **Phase 1B foreground-only Location and Motion/Orientation probes**.
+A minimal, repeatable evidence harness for Meta Ray-Ban Display (MRBD) web-runtime investigation. Current Probe version: **0.2.5**. It retains the Phase 1A runtime, input, storage, lifecycle, network, and export probes and adds **Phase 1B foreground-only Location and Motion/Orientation probes**.
 
 This repository does **not** contain background tracking, Audio, speech, AI, maps, routes, POI, game content, accounts, a backend, remote logging, or a native companion. Phase 1B Audio and all later phases are not implemented.
 
@@ -22,6 +22,8 @@ Phase 1B.2 adds the isolated [MRBD Geo Parity page](https://leafpcye.github.io/M
 
 Phase 1B.4 adds a root-document **Permissions Bootstrap** Probe based on the installed Meta Wearables Webapp plugin and the public DamammApps comparison. A trusted Enter/click requests Device Orientation and Motion permission when those platform methods exist, then issues one low-accuracy `getCurrentPosition()` with fixed options. Version `0.2.4` preserves that initial result and adds a separate, one-shot, low-accuracy Location verification after the user changes the Runtime-owned menu and resumes. The second stage never repeats Sensors or overwrites the initial evidence. The page cannot create or imitate the system menu, does not request Microphone, and never stores exact coordinates.
 
+Version `0.2.5` adds the isolated [Plugin Location Parity page](https://leafpcye.github.io/MRBDMapGameLab/plugin-location-parity.html). It reproduces the Meta Wearables plugin guidance without the main app, Sensors, Permissions API, Service Worker registration, external scripts, or maps. A trusted Enter/click can run either the plugin's timeout-only one-shot request (`{ timeout: 15000 }`) or its no-options `watchPosition()` pattern. The page records activation, timing, standard errors, coordinate-field presence, and accuracy, but never stores or displays exact coordinates.
+
 ## Local development
 
 Node.js is the only prerequisite. No package installation is required.
@@ -38,7 +40,7 @@ npm run build-info
 npm run build
 ```
 
-`npm run dev` automatically regenerates the ignored local `build-info.js`. `npm run build` creates a clean deployable `dist/`, including `.nojekyll` and `geo-parity.html`, without tests, documentation, or development scripts.
+`npm run dev` automatically regenerates the ignored local `build-info.js`. `npm run build` creates a clean deployable `dist/`, including `.nojekyll`, `geo-parity.html`, and `plugin-location-parity.html`, without tests, documentation, or development scripts.
 
 To preview the built site at the same project path used by GitHub Pages:
 
@@ -71,6 +73,7 @@ See [docs/deployment.md](docs/deployment.md) for activation, verification, rollb
 
 - `index.html`, `styles.css`, `app.js`: 600×600-oriented probe UI and orchestration.
 - `geo-parity.html`: isolated, self-contained startup `watchPosition()` parity experiment.
+- `plugin-location-parity.html`: isolated, user-activated reproduction of the Meta plugin's one-shot and watch patterns.
 - `modules/`: logger, Phase 1A diagnostics, permission bootstrap, Location calculations/probe, IMU sampling/probe, activation feedback, and Runtime Snapshot helpers.
 - `sw.js`, `manifest.webmanifest`: minimal versioned app shell.
 - `scripts/dev-server.mjs`: localhost-only static server with no-store responses and traversal protection.
@@ -89,7 +92,7 @@ The Service Worker URL includes the deployed version and commit. That value beco
 
 Registration, activation, or a successful desktop offline fetch does not prove MRBD offline cold-start behavior.
 
-`geo-parity.html` does not register or depend on the Service Worker and is not in the app-shell cache. Because it shares the main app's origin and scope, an already-registered worker may still control the document. The worker explicitly passes this page, including query-string variants, directly to the network without cache storage or `index.html` fallback.
+The two parity pages do not register or depend on the Service Worker and are not in the app-shell cache. Because they share the main app's origin and scope, an already-registered worker may still control their documents. The worker explicitly passes both pages, including query-string variants, directly to the network without cache storage or `index.html` fallback.
 
 ## Export logs
 
@@ -101,4 +104,4 @@ Every structured export includes an Environment snapshot, build version, Git com
 
 Desktop Chrome/Safari and iPhone Safari results are prechecks only. They must never be reported as MRBD Runtime or Neural Band results. User-run findings are recorded separately for the [first session](docs/results/phase-1a-first-device-session-template.md) and [second session](docs/results/phase-1a-1-second-device-session.md). Follow the short [Phase 1A.2 retest](docs/mrbd-phase-1a-2-retest.md) on real hardware and preserve the exported logs.
 
-The next action is the controlled [Phase 1B.4 Permissions Bootstrap test](docs/mrbd-phase-1b-4-permissions-bootstrap-test.md). The initial v0.2.3 real-device run caused the Runtime-owned Permissions menu to appear, but its first low-accuracy Location request failed before the user could enable Location; later high-accuracy requests remained denied. Version `0.2.4` closes that evidence gap with an identical low-accuracy post-menu request. Desktop checks do not establish MRBD permission behavior.
+The next action is the controlled [Plugin Location Parity test](docs/mrbd-phase-1b-5-plugin-location-parity-test.md). Previous real-device runs caused the Runtime-owned Permissions menu to appear and retain Location as enabled, but initial, post-menu, restart, high-accuracy, and fresh-origin requests still returned code 1 `PERMISSION_DENIED` / `User denied Geolocation`. Version `0.2.5` isolates the exact Meta plugin call patterns from the existing permission bootstrap. Desktop checks do not establish MRBD permission behavior.

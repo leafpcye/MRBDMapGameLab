@@ -13,6 +13,10 @@ const sourcePath = path.join(root, "geo-parity.html");
 const distPath = path.join(root, "dist", "geo-parity.html");
 const source = await readFile(sourcePath, "utf8");
 const script = source.match(/<script>([\s\S]*?)<\/script>/)?.[1] || "";
+const pluginSourcePath = path.join(root, "plugin-location-parity.html");
+const pluginDistPath = path.join(root, "dist", "plugin-location-parity.html");
+const pluginSource = await readFile(pluginSourcePath, "utf8");
+const pluginScript = pluginSource.match(/<script>([\s\S]*?)<\/script>/)?.[1] || "";
 let server;
 let baseUrl;
 
@@ -71,6 +75,99 @@ function runtimeHarness({ previous = null, watchThrows = null } = {}) {
     watchCalls,
     setPerformance(value) { performanceMs = value; },
     text(id) { return nodes.get(id)?.textContent; }
+  };
+}
+
+function pluginRuntimeHarness() {
+  const nodes = new Map();
+  const documentEvents = new Map();
+  const windowEvents = new Map();
+  const oneShotCalls = [];
+  const watchCalls = [];
+  let performanceMs = 100;
+  const documentObject = {
+    visibilityState: "visible",
+    activeElement: null,
+    getElementById(id) {
+      if (!nodes.has(id)) {
+        const listeners = new Map();
+        const node = {
+          id,
+          textContent: "",
+          value: "",
+          disabled: false,
+          addEventListener(name, callback) { listeners.set(name, callback); },
+          dispatch(name, event) { listeners.get(name)?.(event); },
+          focus() { documentObject.activeElement = node; },
+          classList: { toggle() {} }
+        };
+        nodes.set(id, node);
+      }
+      return nodes.get(id);
+    },
+    addEventListener(name, callback) { documentEvents.set(name, callback); },
+    querySelectorAll() {
+      return Array.from(nodes.values()).filter((node) => !node.disabled);
+    }
+  };
+  const locationObject = {
+    href: "https://example.test/MRBDMapGameLab/plugin-location-parity.html",
+    pathname: "/MRBDMapGameLab/plugin-location-parity.html"
+  };
+  const navigatorObject = {
+    userActivation: { isActive: true, hasBeenActive: true },
+    serviceWorker: { controller: null },
+    geolocation: {
+      getCurrentPosition(success, error, options) {
+        oneShotCalls.push({ success, error, options });
+      },
+      watchPosition(success, error, options) {
+        watchCalls.push({ success, error, options, argumentCount: arguments.length });
+        return 73;
+      },
+      clearWatch() {}
+    }
+  };
+  const context = vm.createContext({
+    Date,
+    JSON,
+    Math,
+    Number,
+    String,
+    Boolean,
+    Object,
+    Array,
+    URL,
+    location: locationObject,
+    navigator: navigatorObject,
+    document: documentObject,
+    window: {
+      isSecureContext: true,
+      addEventListener(name, callback) { windowEvents.set(name, callback); }
+    },
+    performance: { now: () => performanceMs },
+    setInterval() { return 1; },
+    clearInterval() {}
+  });
+  vm.runInContext(pluginScript, context);
+  documentEvents.get("DOMContentLoaded")();
+  const trustedEnter = () => ({
+    type: "keydown",
+    key: "Enter",
+    repeat: false,
+    isTrusted: true,
+    preventDefault() {}
+  });
+  return {
+    nodes,
+    documentEvents,
+    windowEvents,
+    oneShotCalls,
+    watchCalls,
+    trustedEnter,
+    setPerformance(value) { performanceMs = value; },
+    text(id) { return nodes.get(id)?.textContent; },
+    evidence() { return JSON.parse(nodes.get("evidence-json").value); }
   };
 }
 
@@ -196,11 +293,11 @@ test("synchronous watchPosition exception is visible and persisted", () => {
   assert.equal(JSON.parse(runtime.stored.get("mrbdGeoParity.lastResult")).state, "synchronous-error");
 });
 
-test("Service Worker gives geo-parity an explicit network-only bypass", async () => {
+test("Service Worker gives the original geo-parity page an explicit network-only bypass", async () => {
   const worker = await readFile(path.join(root, "sw.js"), "utf8");
   assert.equal(worker.includes('appUrl("geo-parity.html")'), false);
-  assert.match(worker, /requestUrl\.pathname === new URL\("geo-parity\.html", APP_BASE\)\.pathname/);
-  const bypassIndex = worker.indexOf('new URL("geo-parity.html", APP_BASE)');
+  assert.match(worker, /new URL\("geo-parity\.html", APP_BASE\)\.pathname/);
+  const bypassIndex = worker.indexOf("const parityPaths");
   const fallbackIndex = worker.indexOf('caches.match(INDEX_URL)');
   assert.ok(bypassIndex >= 0 && bypassIndex < fallbackIndex);
   assert.match(worker.slice(bypassIndex, fallbackIndex), /event\.respondWith\(fetch\(event\.request\)\)/);
@@ -227,4 +324,92 @@ test("built page remains self-contained and does not redirect to the main app", 
   assert.equal(response.headers.get("location"), null);
   assert.equal(body.includes('src="./app.js"'), false);
   assert.equal(body.includes("MRBD Capability Probe"), false);
+});
+
+test("plugin Location parity page is built and served from the Pages subpath", async () => {
+  assert.ok((await stat(pluginDistPath)).size > 1000);
+  const response = await fetch(`${baseUrl}/MRBDMapGameLab/plugin-location-parity.html`);
+  assert.equal(response.status, 200);
+  assert.match(response.headers.get("content-type"), /^text\/html/);
+  assert.match(await response.text(), /PLUGIN LOCATION PARITY/);
+});
+
+test("plugin parity page has no automatic Geolocation request", () => {
+  const runtime = pluginRuntimeHarness();
+  assert.equal(runtime.oneShotCalls.length, 0);
+  assert.equal(runtime.watchCalls.length, 0);
+  assert.equal(runtime.text("state"), "idle");
+});
+
+test("plugin parity one-shot exactly matches the plugin timeout-only call", () => {
+  const runtime = pluginRuntimeHarness();
+  runtime.nodes.get("start-one-shot").dispatch("keydown", runtime.trustedEnter());
+  assert.equal(runtime.oneShotCalls.length, 1);
+  assert.deepEqual({ ...runtime.oneShotCalls[0].options }, { timeout: 15000 });
+  assert.equal(Object.hasOwn(runtime.oneShotCalls[0].options, "enableHighAccuracy"), false);
+  assert.equal(Object.hasOwn(runtime.oneShotCalls[0].options, "maximumAge"), false);
+});
+
+test("trusted Enter and synthesized click cannot duplicate the one-shot", () => {
+  const runtime = pluginRuntimeHarness();
+  runtime.nodes.get("start-one-shot").dispatch("keydown", runtime.trustedEnter());
+  runtime.nodes.get("start-one-shot").dispatch("click", { type: "click", isTrusted: true });
+  assert.equal(runtime.oneShotCalls.length, 1);
+});
+
+test("plugin parity watch passes no options argument", () => {
+  const runtime = pluginRuntimeHarness();
+  runtime.nodes.get("start-watch").dispatch("keydown", runtime.trustedEnter());
+  assert.equal(runtime.watchCalls.length, 1);
+  assert.equal(runtime.watchCalls[0].argumentCount, 2);
+  assert.equal(runtime.watchCalls[0].options, undefined);
+});
+
+test("plugin parity evidence never retains exact coordinates", () => {
+  const runtime = pluginRuntimeHarness();
+  runtime.nodes.get("start-one-shot").dispatch("keydown", runtime.trustedEnter());
+  runtime.setPerformance(680);
+  runtime.oneShotCalls[0].success({
+    coords: { latitude: 12.345678, longitude: 87.654321, accuracy: 6 }
+  });
+  const serialized = JSON.stringify(runtime.evidence());
+  assert.equal(serialized.includes("12.345678"), false);
+  assert.equal(serialized.includes("87.654321"), false);
+  assert.equal(runtime.evidence().activeCall.result.latitudePresent, true);
+  assert.equal(runtime.evidence().activeCall.result.longitudePresent, true);
+  assert.equal(runtime.evidence().activeCall.result.accuracy, 6);
+});
+
+test("plugin parity preserves standard error evidence and callback timing", () => {
+  const runtime = pluginRuntimeHarness();
+  runtime.nodes.get("start-one-shot").dispatch("keydown", runtime.trustedEnter());
+  runtime.setPerformance(3013);
+  runtime.oneShotCalls[0].error({
+    code: 1,
+    name: "GeolocationPositionError",
+    message: "User denied Geolocation"
+  });
+  assert.equal(runtime.text("state"), "error");
+  assert.equal(runtime.text("error-code"), "1");
+  assert.equal(runtime.text("error-name"), "PERMISSION_DENIED");
+  assert.equal(runtime.text("error-message"), "User denied Geolocation");
+  assert.equal(runtime.text("first-callback"), "2913 ms");
+});
+
+test("plugin parity source has no Sensors, Permissions preflight, SW registration, or external scripts", () => {
+  assert.equal(pluginSource.includes("DeviceOrientationEvent"), false);
+  assert.equal(pluginSource.includes("DeviceMotionEvent"), false);
+  assert.equal(pluginSource.includes("navigator.permissions"), false);
+  assert.equal(pluginSource.includes("serviceWorker.register"), false);
+  assert.doesNotMatch(pluginSource, /<script[^>]+\bsrc\s*=/i);
+});
+
+test("Service Worker gives both parity pages network-only bypasses", async () => {
+  const worker = await readFile(path.join(root, "sw.js"), "utf8");
+  assert.match(worker, /new URL\("geo-parity\.html", APP_BASE\)\.pathname/);
+  assert.match(worker, /new URL\("plugin-location-parity\.html", APP_BASE\)\.pathname/);
+  const bypassIndex = worker.indexOf("const parityPaths");
+  const fallbackIndex = worker.indexOf("caches.match(INDEX_URL)");
+  assert.ok(bypassIndex >= 0 && bypassIndex < fallbackIndex);
+  assert.match(worker.slice(bypassIndex, fallbackIndex), /event\.respondWith\(fetch\(event\.request\)\)/);
 });

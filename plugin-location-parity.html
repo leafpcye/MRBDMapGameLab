@@ -1,0 +1,413 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=600,height=600,initial-scale=1,viewport-fit=cover">
+  <meta name="description" content="Isolated Meta Wearables plugin-parity Geolocation probe.">
+  <meta name="mrbd-web-app-capable" content="yes">
+  <meta name="theme-color" content="#050807">
+  <meta name="color-scheme" content="dark">
+  <title>MRBD Plugin Location Parity</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #050807;
+      --surface: #0b1210;
+      --line: #314239;
+      --text: #f3fff7;
+      --muted: #a7b8ad;
+      --accent: #64ff9b;
+      --warning: #ffd166;
+      --danger: #ff7b72;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+    }
+    * { box-sizing: border-box; }
+    html, body { margin: 0; min-height: 100%; background: var(--bg); color: var(--text); }
+    body { display: grid; place-items: start center; }
+    main {
+      width: min(100%, 600px);
+      min-height: min(100svh, 600px);
+      padding: 14px 18px 12px;
+      display: grid;
+      grid-template-rows: auto auto auto 1fr auto;
+      gap: 9px;
+    }
+    header {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      gap: 12px;
+      border-bottom: 2px solid var(--accent);
+      padding-bottom: 7px;
+    }
+    h1 { margin: 0; color: var(--accent); font-size: 23px; letter-spacing: .02em; }
+    .version { color: var(--muted); font-size: 12px; white-space: nowrap; }
+    .summary {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 6px 12px;
+      padding-bottom: 8px;
+      border-bottom: 1px solid var(--line);
+    }
+    .metric { min-width: 0; }
+    .label { display: block; color: var(--muted); font-size: 11px; text-transform: uppercase; }
+    .value { display: block; margin-top: 2px; font-weight: 800; overflow-wrap: anywhere; }
+    #state, #call { color: var(--warning); }
+    #error-message { color: var(--danger); }
+    .actions { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+    button {
+      min-height: 54px;
+      padding: 8px 10px;
+      border: 1px solid var(--line);
+      border-radius: 4px;
+      color: var(--text);
+      background: var(--surface);
+      font: inherit;
+      font-weight: 800;
+      text-align: left;
+    }
+    button:first-child { color: var(--bg); background: var(--accent); border-color: var(--accent); }
+    button:disabled { opacity: .42; }
+    button:focus-visible { outline: 3px solid var(--warning); outline-offset: 3px; }
+    .evidence {
+      min-height: 0;
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 0 18px;
+      align-content: start;
+      overflow: auto;
+    }
+    dl { margin: 0; }
+    dl div { display: grid; grid-template-columns: 1fr 1.2fr; gap: 8px; padding: 3px 0; border-bottom: 1px solid #203028; }
+    dt { color: var(--muted); font-size: 12px; }
+    dd { margin: 0; text-align: right; font-size: 13px; font-weight: 700; overflow-wrap: anywhere; }
+    .note { margin: 0; color: var(--muted); font-size: 12px; line-height: 1.35; }
+    textarea {
+      display: none;
+      width: 100%;
+      height: 150px;
+      color: var(--text);
+      background: #020403;
+      border: 1px solid var(--line);
+      font: 11px/1.35 ui-monospace, monospace;
+    }
+    textarea.visible { display: block; }
+    @media (max-width: 460px) {
+      main { padding: 10px 12px 8px; gap: 6px; }
+      h1 { font-size: 19px; }
+      .summary { grid-template-columns: repeat(2, 1fr); }
+      .evidence { gap: 0 10px; }
+      dl div { grid-template-columns: 1fr; gap: 0; }
+      dd { text-align: left; }
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <header>
+      <h1>PLUGIN LOCATION PARITY</h1>
+      <span class="version">parity-v1 · 0.2.5</span>
+    </header>
+
+    <section class="summary" aria-label="Probe status">
+      <div class="metric"><span class="label">API</span><span class="value" id="api">checking</span></div>
+      <div class="metric"><span class="label">Secure</span><span class="value" id="secure">—</span></div>
+      <div class="metric"><span class="label">Call</span><span class="value" id="call">not-started</span></div>
+      <div class="metric"><span class="label">State</span><span class="value" id="state">idle</span></div>
+      <div class="metric"><span class="label">Input</span><span class="value" id="input">none</span></div>
+      <div class="metric"><span class="label">Activation</span><span class="value" id="activation">—</span></div>
+      <div class="metric"><span class="label">Callbacks</span><span class="value" id="callbacks">0</span></div>
+      <div class="metric"><span class="label">First callback</span><span class="value" id="first-callback">—</span></div>
+    </section>
+
+    <nav class="actions" aria-label="Location probe actions">
+      <button id="start-one-shot">1 · One-shot<br>Plugin exact · 15 s</button>
+      <button id="start-watch">2 · Watch<br>Plugin exact · no options</button>
+      <button id="stop-watch" disabled>Stop Watch</button>
+      <button id="show-evidence">Show Evidence JSON</button>
+      <button id="back-to-probe">Back to Main Probe</button>
+    </nav>
+
+    <section class="evidence" aria-label="Location evidence">
+      <dl>
+        <div><dt>One-shot options</dt><dd>timeout 15000 only</dd></div>
+        <div><dt>Watch options</dt><dd>none</dd></div>
+        <div><dt>Issued at</dt><dd id="issued-at">—</dd></div>
+        <div><dt>Elapsed</dt><dd id="elapsed">0 ms</dd></div>
+        <div><dt>Latitude present</dt><dd id="latitude-present">no</dd></div>
+        <div><dt>Longitude present</dt><dd id="longitude-present">no</dd></div>
+        <div><dt>Accuracy</dt><dd id="accuracy">—</dd></div>
+      </dl>
+      <dl>
+        <div><dt>Error code</dt><dd id="error-code">—</dd></div>
+        <div><dt>Error name</dt><dd id="error-name">—</dd></div>
+        <div><dt>Error message</dt><dd id="error-message">—</dd></div>
+        <div><dt>Visibility</dt><dd id="visibility">—</dd></div>
+        <div><dt>SW controller</dt><dd id="sw-controller">—</dd></div>
+        <div><dt>Page URL</dt><dd id="page-url">—</dd></div>
+      </dl>
+    </section>
+
+    <div>
+      <p class="note">Run each test with Neural Band Enter. No Sensors, Permissions API, Service Worker registration, map, external script, or exact coordinate logging is used.</p>
+      <textarea id="evidence-json" readonly aria-label="Selectable evidence JSON"></textarea>
+    </div>
+  </main>
+
+  <script>
+    "use strict";
+
+    (function () {
+      const PAGE_VERSION = "plugin-location-parity-v1";
+      const ONE_SHOT_OPTIONS = Object.freeze({ timeout: 15000 });
+      const evidence = {
+        pageVersion: PAGE_VERSION,
+        projectVersion: "0.2.5",
+        pageLoadedAt: new Date().toISOString(),
+        href: location.href,
+        secureContext: Boolean(window.isSecureContext),
+        geolocationApiPresent: Boolean(navigator.geolocation),
+        serviceWorkerController: Boolean(navigator.serviceWorker && navigator.serviceWorker.controller),
+        calls: []
+      };
+      let activeCall = null;
+      let oneShotStarted = false;
+      let watchStarted = false;
+      let watchId = null;
+      let lastTrustedEnterAt = -Infinity;
+      let elapsedTimer = null;
+
+      const element = (id) => document.getElementById(id);
+      const show = (id, value) => { element(id).textContent = String(value); };
+      const errorName = (code) => ({
+        1: "PERMISSION_DENIED",
+        2: "POSITION_UNAVAILABLE",
+        3: "TIMEOUT"
+      }[code] || "UNKNOWN");
+
+      function activationSnapshot(event) {
+        const activation = navigator.userActivation;
+        return {
+          eventTrusted: Boolean(event && event.isTrusted),
+          isActive: activation ? Boolean(activation.isActive) : "unavailable",
+          hasBeenActive: activation ? Boolean(activation.hasBeenActive) : "unavailable"
+        };
+      }
+
+      function publicPosition(position) {
+        const coords = position && position.coords;
+        return {
+          latitudePresent: Boolean(coords && Number.isFinite(coords.latitude)),
+          longitudePresent: Boolean(coords && Number.isFinite(coords.longitude)),
+          accuracy: coords && Number.isFinite(coords.accuracy) ? coords.accuracy : null
+        };
+      }
+
+      function publicError(error) {
+        return {
+          code: Number.isFinite(error && error.code) ? error.code : null,
+          codeName: errorName(error && error.code),
+          name: (error && error.name) || "GeolocationPositionError",
+          message: (error && error.message) || ""
+        };
+      }
+
+      function refreshEvidenceText() {
+        element("evidence-json").value = JSON.stringify({
+          ...evidence,
+          visibilityState: document.visibilityState,
+          activeCall: activeCall ? { ...activeCall } : null
+        }, null, 2);
+      }
+
+      function updateElapsed() {
+        if (!activeCall || activeCall.completedAtPerformanceMs !== null) return;
+        show("elapsed", `${Math.max(0, Math.round(performance.now() - activeCall.startedAtPerformanceMs))} ms`);
+      }
+
+      function beginCall(kind, event, optionsDescription) {
+        const activation = activationSnapshot(event);
+        activeCall = {
+          kind,
+          options: optionsDescription,
+          inputType: event.type,
+          inputKey: event.key || null,
+          activation,
+          issuedAt: new Date().toISOString(),
+          startedAtPerformanceMs: performance.now(),
+          completedAtPerformanceMs: null,
+          firstCallbackElapsedMs: null,
+          callbackCount: 0,
+          state: "issued",
+          result: null,
+          error: null
+        };
+        evidence.calls.push(activeCall);
+        show("call", kind);
+        show("state", "issued");
+        show("input", `${event.type} ${event.key || ""}`.trim());
+        show("activation", `active ${activation.isActive}`);
+        show("issued-at", activeCall.issuedAt);
+        show("callbacks", "0");
+        show("first-callback", "—");
+        show("elapsed", "0 ms");
+        show("latitude-present", "no");
+        show("longitude-present", "no");
+        show("accuracy", "—");
+        show("error-code", "—");
+        show("error-name", "—");
+        show("error-message", "—");
+        clearInterval(elapsedTimer);
+        elapsedTimer = setInterval(updateElapsed, 250);
+        refreshEvidenceText();
+      }
+
+      function recordCallback(state, detail) {
+        if (!activeCall) return;
+        const callbackAt = performance.now();
+        activeCall.callbackCount += 1;
+        if (activeCall.firstCallbackElapsedMs === null) {
+          activeCall.firstCallbackElapsedMs = Math.max(0, Math.round(callbackAt - activeCall.startedAtPerformanceMs));
+        }
+        activeCall.completedAtPerformanceMs = callbackAt;
+        activeCall.state = state;
+        if (state === "success") activeCall.result = detail;
+        else activeCall.error = detail;
+        show("state", state);
+        show("callbacks", activeCall.callbackCount);
+        show("first-callback", `${activeCall.firstCallbackElapsedMs} ms`);
+        show("elapsed", `${activeCall.firstCallbackElapsedMs} ms`);
+        if (state === "success") {
+          show("latitude-present", detail.latitudePresent ? "yes" : "no");
+          show("longitude-present", detail.longitudePresent ? "yes" : "no");
+          show("accuracy", detail.accuracy === null ? "—" : `${detail.accuracy} m`);
+        } else {
+          show("error-code", detail.code === null ? "—" : detail.code);
+          show("error-name", detail.codeName);
+          show("error-message", detail.message || "(empty)");
+        }
+        if (activeCall.kind === "one-shot") clearInterval(elapsedTimer);
+        refreshEvidenceText();
+      }
+
+      function onSuccess(position) {
+        recordCallback("success", publicPosition(position));
+      }
+
+      function onError(error) {
+        recordCallback("error", publicError(error));
+      }
+
+      function trustedAction(event, kind) {
+        if (event.type === "keydown") {
+          if (event.key !== "Enter" || event.repeat || event.isTrusted !== true) return false;
+          event.preventDefault();
+          lastTrustedEnterAt = performance.now();
+          return true;
+        }
+        if (event.type !== "click" || event.isTrusted !== true) return false;
+        if (performance.now() - lastTrustedEnterAt <= 750) return false;
+        return true;
+      }
+
+      function startOneShot(event) {
+        if (!trustedAction(event, "one-shot") || oneShotStarted || activeCall && activeCall.state === "issued") return;
+        oneShotStarted = true;
+        element("start-one-shot").disabled = true;
+        element("start-watch").disabled = true;
+        beginCall("one-shot", event, { timeout: 15000 });
+        try {
+          navigator.geolocation.getCurrentPosition(onSuccess, onError, ONE_SHOT_OPTIONS);
+        } catch (error) {
+          recordCallback("synchronous-error", publicError(error));
+        }
+        if (!watchStarted) element("start-watch").disabled = false;
+      }
+
+      function startWatch(event) {
+        if (!trustedAction(event, "watch") || watchStarted || activeCall && activeCall.state === "issued") return;
+        watchStarted = true;
+        element("start-watch").disabled = true;
+        element("start-one-shot").disabled = true;
+        beginCall("watch", event, "no-options");
+        try {
+          watchId = navigator.geolocation.watchPosition(onSuccess, onError);
+          element("stop-watch").disabled = false;
+        } catch (error) {
+          recordCallback("synchronous-error", publicError(error));
+        }
+      }
+
+      function stopWatch() {
+        if (watchId === null) return;
+        try {
+          navigator.geolocation.clearWatch(watchId);
+          watchId = null;
+          if (activeCall && activeCall.kind === "watch") {
+            activeCall.state = "stopped";
+            show("state", "stopped");
+          }
+        } catch (error) {
+          if (activeCall) activeCall.stopError = publicError(error);
+          show("state", "stop-error");
+        }
+        clearInterval(elapsedTimer);
+        element("stop-watch").disabled = true;
+        refreshEvidenceText();
+      }
+
+      function installTrustedStart(button, callback) {
+        button.addEventListener("keydown", callback);
+        button.addEventListener("click", callback);
+      }
+
+      function moveFocus(delta) {
+        const buttons = Array.from(document.querySelectorAll("button:not([disabled])"));
+        if (!buttons.length) return;
+        const index = buttons.indexOf(document.activeElement);
+        const next = Math.max(0, Math.min(buttons.length - 1, (index < 0 ? 0 : index) + delta));
+        buttons[next].focus();
+      }
+
+      function initialize() {
+        show("api", navigator.geolocation ? "present" : "missing");
+        show("secure", window.isSecureContext);
+        show("state", "idle");
+        show("visibility", document.visibilityState);
+        show("sw-controller", evidence.serviceWorkerController);
+        show("page-url", location.pathname);
+        installTrustedStart(element("start-one-shot"), startOneShot);
+        installTrustedStart(element("start-watch"), startWatch);
+        element("stop-watch").addEventListener("click", stopWatch);
+        element("show-evidence").addEventListener("click", function () {
+          refreshEvidenceText();
+          element("evidence-json").classList.toggle("visible");
+        });
+        element("back-to-probe").addEventListener("click", function () {
+          location.href = new URL("./index.html", location.href).href;
+        });
+        window.addEventListener("keydown", function (event) {
+          if (event.key === "ArrowUp" || event.key === "ArrowLeft") {
+            event.preventDefault();
+            moveFocus(-1);
+          } else if (event.key === "ArrowDown" || event.key === "ArrowRight") {
+            event.preventDefault();
+            moveFocus(1);
+          } else if (event.key === "Escape") {
+            location.href = new URL("./index.html", location.href).href;
+          }
+        });
+        document.addEventListener("visibilitychange", function () {
+          show("visibility", document.visibilityState);
+          refreshEvidenceText();
+        });
+        window.addEventListener("pagehide", stopWatch);
+        refreshEvidenceText();
+        element("start-one-shot").focus();
+      }
+
+      document.addEventListener("DOMContentLoaded", initialize);
+    }());
+  </script>
+</body>
+</html>
