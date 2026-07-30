@@ -325,4 +325,3 @@ These excerpts are limited to the minimum needed to describe call semantics and 
 - Shared translations: `https://www.damamme.com/damammapps/i18n.json`
 - DamamMap app code: `https://www.damamme.com/damammapps/apps/damammap/js/app.js`
 - Local device evidence: `docs/results/phase-1b-geolocation-attempt-1.md`, `docs/results/phase-1b-geolocation-attempt-2.md`, and `docs/results/phase-1b-geo-parity-device-template.md`
-

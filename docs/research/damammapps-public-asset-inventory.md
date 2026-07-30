@@ -126,4 +126,3 @@ Search hits were treated as evidence of text presence, not automatic evidence of
 - `Escape` occurs in a custom confirmation overlay only.
 - `Backspace` occurs in the virtual keyboard only.
 - No `navigator.permissions`, `permissions.query`, `mediaDevices`, `getUserMedia`, `serviceWorker`, browser History API handlers, iframe, or `postMessage` was found.
-

@@ -70,13 +70,16 @@ DamamMap issues a low-accuracy bootstrap, later one-shot calls, and a watch. A p
 
 ## Candidate explanations for the current failure
 
-1. **Origin-specific MRBD permission state is stuck denied for `leafpcye.github.io`.**  
+1. **Origin-specific MRBD permission state is stuck denied for `leafpcye.github.io`.**
+
    Confidence: medium-high. Deleting/re-adding did not reset it, while another origin prompted.
 
-2. **MRBD recognizes/requests permission most reliably from a trusted child Start using a low-accuracy one-shot before high-accuracy tracking.**  
+2. **MRBD recognizes/requests permission most reliably from a trusted child Start using a low-accuracy one-shot before high-accuracy tracking.**
+
    Confidence: medium. This exact sequence is public-code evidence and remains untested locally as a controlled parity experiment.
 
-3. **The explicit deep-link-installed Hub/root and child history structure participates in host permission registration.**  
+3. **The explicit deep-link-installed Hub/root and child history structure participates in host permission registration.**
+
    Confidence: medium-low. It fits the Permissions menu and back behavior, but the deep link contains no capability parameter.
 
 These explanations can coexist. Static analysis cannot select a single root cause.
@@ -116,4 +119,3 @@ Record installed root, middle-pinch behavior, Permissions menu, and location pro
 ## Decision gate
 
 Do not modify the production probe until the experiment design is reviewed. The next implementation should choose one experiment, preserve detailed callbacks, and avoid map/navigation/game scope expansion.
-
